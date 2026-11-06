@@ -144,3 +144,49 @@ test('new location cache version discards old township-only cached name without 
  assert.ok(page.includes("(!desktop&&entry.level==='administrative'?'（Geoapify 尚無此點的村里或小地名資料）':'')"));
  assert.ok(!page.includes("api('/v1/location/reverse'"));
 });
+
+test('same-place 24.59939,120.77735 saved recording reuses precise nearby Geoapify label despite GPS uncertainty',()=>{
+ const begin=page.indexOf('function mdGeoCacheHit(gps){');
+ const end=page.indexOf('function mdDesktopLocation()',begin);
+ assert.ok(begin>0&&end>begin);
+ const fixed=Date.now();
+ const entry={version:2,lat:24.59939,lon:120.77734,accuracy_m:24,
+  label:'苗栗縣後龍鎮龍坑里・十班坑附近',position_mode:'precise',level:'locality',
+  source:'Geoapify',expires_at_ms:fixed+600000};
+ const meters=(a,b)=>6371008.8*2*Math.asin(Math.min(1,
+  Math.sqrt(Math.sin((b.lat-a.lat)*Math.PI/360)**2+
+  Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
+  Math.sin((b.lon-a.lon)*Math.PI/360)**2)));
+ const ctx={mdGeoEntries:()=>[entry],mdGeoMeters:meters,Date,Math,Number,String};
+ const hit=runInNewContext(page.slice(begin,end)+'\nmdGeoCacheHit',{...ctx});
+ assert.equal(hit({lat:24.59939,lon:120.77735,accuracy:26,position_mode:'precise'})?.label,entry.label);
+ // Faraway fixes and very uncertain GPS must not inherit the detailed village.
+ assert.equal(hit({lat:24.60539,lon:120.77735,accuracy:26,position_mode:'precise'}),null);
+ assert.equal(hit({lat:24.59939,lon:120.77735,accuracy:200,position_mode:'precise'}),null);
+ assert.equal(hit({lat:24.59939,lon:120.77735,accuracy:26,position_mode:'approximate'}),null);
+});
+test('saved recording details offer explicit GPS geocoding without background lookups or audio mutation',()=>{
+ assert.ok(page.includes('data-action="resolveSavedRecordingGpsPlace"'));
+ assert.ok(page.includes("case 'resolveSavedRecordingGpsPlace':await resolveSavedRecordingGpsPlace(id)"));
+ const start=page.indexOf('async function resolveSavedRecordingGpsPlace(id){');
+ const end=page.indexOf('async function editLocationName(id){',start);
+ assert.ok(start>0&&end>start);
+ const code=page.slice(start,end);
+ assert.ok(code.includes("position_mode:'manual',location_consent:true"));
+ assert.ok(code.includes("setLocalPlaceInfo(id,{name:label,source:'Geoapify'"));
+ assert.ok(!/uploadFile\s*\(|saveLocalWebFile\s*\(|R2/.test(code));
+ assert.ok(!page.slice(page.indexOf('function recordingPlace(m){'),page.indexOf('async function resolveSavedRecordingGpsPlace(id){')).includes('authenticated('));
+});
+test('M4A site bundle embeds the same fragment-safe metadata module and gives diagnostic codes',()=>{
+ const original=readFileSync(new URL('../src/m4a-mdta.mjs',import.meta.url),'utf8');
+ const encoded=/const MDTA_MODULE=("(?:\\.|[^"\\])*")/s.exec(web);
+ assert.ok(encoded,'M4A module is inline in the real Cloudflare Worker');
+ assert.equal(JSON.parse(encoded[1]),original);
+ assert.ok(original.includes('FRAGMENT_ABSOLUTE_BASE_OFFSET'));
+ assert.ok(original.includes('assertFragmentedSafe'));
+ const start=page.indexOf('async function mdTagFutureWebRecording(');
+ const body=page.slice(start,page.indexOf('const sampleCourses=',start));
+ assert.ok(body.indexOf('try{')<body.indexOf('const values=mdValues('));
+ assert.ok(body.includes("errorCode"));
+ assert.ok(body.includes("return {file,status:'writer_failed',errorCode}"));
+});
