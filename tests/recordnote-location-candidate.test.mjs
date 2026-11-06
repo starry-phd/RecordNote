@@ -55,7 +55,7 @@ test('persistent cache enforces Haversine/precision and shows attribution',()=>{
  assert.ok(page.includes('Powered by'));
  assert.ok(page.includes('https://www.geoapify.com/'));
  assert.ok(page.includes('https://www.openstreetmap.org/copyright'));
- assert.ok(page.includes("location_source:placeName?'Geoapify':''"));
+ assert.ok(page.includes("location_source:gps?.position_mode==='manual'?'manual':placeName?'Geoapify':''"));
 });
 
 function readMapParser(){
