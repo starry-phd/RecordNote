@@ -112,7 +112,7 @@ test('default long filename is shown as simple date/time without changing real f
  const custom=runInNewContext(slice('function recordingDisplayTitle(fileName){','function recordingTile(m){')+
   '\nrecordingDisplayTitle("meeting.m4a")',{String});
  assert.equal(custom,'meeting.m4a');
- assert.ok(page.includes('原始檔名：'));
+ assert.ok(page.includes('rn-mini-more-title')); // Exact source filename is still available in the per-record menu.
 });
 test('book media list retains batch selection and advanced file controls',()=>{
  const m={id:'audio-1',kind:'audio',original_name:'hello.m4a',bytes:40000,localOnly:true,visibility:'private'};
