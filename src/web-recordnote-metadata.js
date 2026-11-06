@@ -48,12 +48,13 @@ function mdValues(policy,{fileName,startedAt,endedAt,bookTitle,gps,placeName}){
  return output;
 }
 async function mdTagFutureWebRecording(file,policy,details){
+ // Policy inputs and recording timestamps may be unavailable: always retain original audio.
+ try{
  const values=mdValues(policy,details);
  if(!Object.keys(values).length)return {file,status:'no_active_supported_keys'};
  if(!/\.m4a$/i.test(file.name)||!/(audio\/mp4|audio\/x-m4a)/i.test(file.type))return {file,status:'not_m4a'};
  // Mobile browsers may run out of RAM when assembling large Blob parts. Native Expo adapter is chunked.
  if(file.size>70*1024*1024)return {file,status:'web_large_file_skipped'};
- try{
    const engine=await import('/assets/m4a-mdta.mjs');
    const chunks=[];
    const result=await engine.embedMdtaStream({size:file.size,readAt:async(o,n)=>new Uint8Array(await file.slice(o,o+n).arrayBuffer()),write:async chunk=>chunks.push(chunk)},values);
