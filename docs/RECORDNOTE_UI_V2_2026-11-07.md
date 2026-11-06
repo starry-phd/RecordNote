@@ -40,6 +40,6 @@
 - 修正：從恢復的 pending queue 排除 `storage:'local-library'`，只保留合法音訊及本來獨立建立的真正待備份工作；`clearPendingRecording` 與 `retryPending` 加上本機 library 防誤操作保護，避免上傳流程意外刪除正常本機錄音。沒有對任何用戶錄音執行清理、上傳、刪除或資料遷移。
 - UI：登入狀態只顯示「已連線」，不顯示誤導性的「待同步 N」；首頁先呈現真正的「錄音紀錄」，如仍有真正獨立待備份任務，則只在清單**下方**顯示預設收合的「其他本機備份」，展開後有「下載備份」、「備份至雲端」。如果只有 6 筆正常本機 library 音檔，則 pending 區塊完全消失。
 - 回歸測試 `tests/recordnote-ui-v2.test.mjs` 新增：一般 local-library 不列 pending、6 筆本機錄音時 pending 為 0、真實 queue 仍可操作但收合、一般錄音不可誤刪/誤重試。新增 `.github/workflows/recordnote-ui-quick.yml` 快速 Node 測試，不依賴 FFmpeg 安裝。
-- 快速 UI CI **14/14 PASS** https://github.com/yukidu/starry-recorder/actions/runs/42285795729，Geoapify 發布 Gate **17/17 PASS** https://github.com/yukidu/starry-recorder/actions/runs/42285267631。原有音檔完整測試執行因 GitHub runner 安裝 ffmpeg 步驟仍進行中，不宣稱本次完整音檔 CI 已結束；本次無音訊模組內容變更。
+- 快速 UI CI **14/14 PASS** https://github.com/yukidu/starry-recorder/actions/runs/42285795729，Geoapify 發布 Gate **17/17 PASS** https://github.com/yukidu/starry-recorder/actions/runs/42285267631。本次完整音檔 CI https://github.com/yukidu/starry-recorder/actions/runs/42285267678 最終取消（安裝 ffmpeg 的 runner 階段未完成），不可宣稱完整 CI 通過；本次未修改音訊模組，UI 專項 14/14 和發布 Gate 17/17 均已成功。
 - 已正式 Cloudflare Web Worker 部署 **100%**：version `417e97ee-e098-4212-9f7a-490a59224954`、deployment `6a9ac070-9cee-4610-a6a2-737c16411ebe`。可回退上版 `a094a072-ae0d-4f91-b24a-9aea6743e099`。API、D1、R2、Starry ID、Geoapify 中央 Worker 未修改。
 - 未執行真實 Android Chrome 的點擊與資料庫目視驗收，仍須由使用者手機重新整理並檢查；若 pending 真有其他歷史上傳工作，仍可能見到展開區，但正常 library 不應重複列出。
