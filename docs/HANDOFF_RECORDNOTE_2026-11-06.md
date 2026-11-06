@@ -87,3 +87,15 @@
 3. Web 實裝失敗後保留 `media_id` + 原始 UUID 的安全重試流程，驗證中斷、重登、併發、刪除及權限拒絕，不自動公開 GPS。
 4. 使用隔離測試會員及**新產生**的錄音做手機→桌面跨裝置比對，再以真 M4A 的 `ffprobe`／AAC 解碼與另一解析器驗證文字 mdta。既有 helper 不代表 75 種標籤全支援。
 5. 找到或建立真正 Expo 主程式後才可接線、EAS 編譯、真機 iOS／Android 驗收；Production 須在完整證據與回退準備後才發布。不得把 CI 綠燈當成上架或部署證據。
+
+
+## 7. 2026-11-07 手機 M4A 中繼資料與精細地名修復
+
+- Android 手機實際截圖：2026-11-07 02:10、約 5 秒、43KB、本機未上傳 M4A，錄音成功但顯示中繼資料寫入失敗；明細 GPS 約 24.59939,120.77735，地名顯示待設定。此為截圖，未取得原始 M4A 位元，不應誤稱已實際驗證該手機音檔。
+- 修正 src/m4a-mdta.mjs 對 moof 分段式 M4A 的限制：支援經驗證的相對偏移碎片，保留全部 mdat 原位元內容，拒絕 sidx/mfra 絕對索引、tfhd absolute-base-data-offset 或加密輔助索引等可能破壞音訊的格式；不重新編碼、不回寫舊音檔，失敗一律保留原音。正式網站內嵌 MDTA_MODULE 與 standalone 原始碼一致。
+- 修正 mdTagFutureWebRecording 包含 mdValues 的全流程錯誤隔離；失敗時安全顯示 errorCode，方便下次辨識設備專屬問題，勿收集密鑰、錄音內容或會員 GPS 日誌。
+- 修正過嚴的定位快取比對：距離不超過 5 公尺、雙方 GPS 回報精度均不超過 35m、已由 Geoapify 確認是「附近」或行政級別，才允許沿用細地名。仍不能保證真實行政邊界，只提供有來源的附近地名；不得每次錄音自動發出 Geoapify 查詢。
+- 錄音清單新增「辨識這筆 GPS 地名」按鈕，由使用者明確點擊、授權後才會查中央服務。只修改該筆在本機的顯示標籤，不改舊音檔、R2、D1、Starry ID 與 immutable origin。沒有有效 GPS 或精度 >100m 不會宣稱精細地名。
+- 完整 CI 34/34 PASS：https://github.com/yukidu/starry-recorder/actions/runs/42269876836，其中生成的真實 FFmpeg fragmented AAC M4A 經 FFprobe 確認 mdta 可讀，解碼 PCM SHA-256 與原檔一致。獨立 Geoapify release gate 17/17 PASS：https://github.com/yukidu/starry-recorder/actions/runs/42269877024。
+- Cloudflare RecordNote Web 最新正式 100% active version：a798c54d-ea14-4b28-8d18-e13571121fc3；deployment：95e23197-7337-4851-80d3-25a755cdc762；上一正式 Web 版本 e93d1d6d-ef17-40b5-9440-46856c78f0db 可回退。RecordNote API 8105ecb0-5c55-44c4-bd32-c6b04375c64c、Starry Location 09f5bfaf-beeb-4a5f-9be1-c790661e6d00 未修改。
+- 待驗證：用戶同款手機實際 M4A 位元結構、真人授權的 GPS Geoapify 回傳，以及 Android 錄音結束與細地名顯示的端到端實機結果。新錄音若仍失敗，優先依新版安全 errorCode 與不涉及私密內容的短測試音檔追加針對性修復。
