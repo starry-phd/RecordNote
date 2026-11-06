@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
+import {runInNewContext} from 'node:vm';
 const api=readFileSync(new URL('../cloudflare-candidate/recordnote-worker.js',import.meta.url),'utf8');
 const web=readFileSync(new URL('../cloudflare-candidate/recordnote-web.mjs',import.meta.url),'utf8');
 const baselineApi=readFileSync(new URL('../cloudflare-baseline/recordnote-worker.js',import.meta.url),'utf8');
@@ -55,4 +56,41 @@ test('persistent cache enforces Haversine/precision and shows attribution',()=>{
  assert.ok(page.includes('https://www.geoapify.com/'));
  assert.ok(page.includes('https://www.openstreetmap.org/copyright'));
  assert.ok(page.includes("location_source:placeName?'Geoapify':''"));
+});
+
+function readMapParser(){
+ const begin=page.indexOf('function mdReadMapCoordinates(raw){');
+ const end=page.indexOf('function mdApplyManualMap(){',begin);
+ assert.ok(begin>0&&end>begin,'manual parser exists');
+ return runInNewContext(page.slice(begin,end)+'\nmdReadMapCoordinates',{URL,Number,String,Math,Error});
+}
+test('manual coordinates accept Google Maps search URL and plain latitude/longitude without any Google API',()=>{
+ const parse=readMapParser();
+ const examples=[
+  '24.59939, 120.77734',
+  'https://www.google.com/maps/search/?api=1&query=24.59939%2C120.77734',
+  'https://www.google.com/maps/place/example/data=!3d24.59939!4d120.77734',
+ ];
+ for(const item of examples){const p=parse(item);assert.equal(p.lat,24.59939);assert.equal(p.lon,120.77734);}
+});
+test('Google Maps center position is explicitly identified as center, not confirmed pin',()=>{
+ const result=readMapParser()('https://www.google.com/maps/@24.59939,120.77734,17z');
+ assert.equal(result.kind,'map-center');assert.equal(result.lat,24.59939);
+});
+test('untrusted URLs, Google short links, out-of-range coordinates and noncoordinates are rejected',()=>{
+ const parse=readMapParser();
+ for(const item of ['https://evil.example/maps/@24.59939,120.77734','https://maps.app.goo.gl/example','95,120','24,200','not a place']){
+  assert.throws(()=>parse(item),Error);
+ }
+});
+test('desktop mode permits stale or low-accuracy Wi-Fi while manual selection remains explicit',()=>{
+ assert.ok(page.includes('maximumAge:desktop?Infinity:30000'));
+ assert.ok(page.includes("position_mode:coarse?'approximate':'precise'"));
+ assert.ok(page.includes('accuracy>30000'));
+ assert.ok(page.includes("source==='manual'"));
+ assert.ok(page.includes("mdManualRecordEnabled()&&mdGeoOptIn()?mdManualPoint()||capturedGps:capturedGps"));
+ assert.ok(page.includes('manualRecordEnabled'));
+ assert.ok(page.includes('套用手動座標'));
+ assert.ok(page.includes('辨識所選座標地名'));
+ assert.ok(!page.includes('GPS 精度不足或座標已過期'));
 });
