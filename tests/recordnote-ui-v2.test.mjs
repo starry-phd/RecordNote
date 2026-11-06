@@ -94,3 +94,41 @@ test('large type, safe-area, and touch targets',()=>{
  for(const x of ['RecordNote UI v2:','body{font-size:17px','min-height:48px','env(safe-area-inset-bottom)'])
   assert.ok(style.includes(x));
 });
+
+test('default long filename is shown as simple date/time without changing real filename',()=>{
+ const actual=runInNewContext(slice('function recordingDisplayTitle(fileName){','function recordingTile(m){')+
+  '\nrecordingDisplayTitle("RecordNote-20261107-021024-007.m4a")',{String});
+ assert.equal(actual,'11/07 02:10 錄音');
+ const custom=runInNewContext(slice('function recordingDisplayTitle(fileName){','function recordingTile(m){')+
+  '\nrecordingDisplayTitle("meeting.m4a")',{String});
+ assert.equal(custom,'meeting.m4a');
+ assert.ok(page.includes('原始檔名：'));
+});
+test('book media list retains batch selection and advanced file controls',()=>{
+ const m={id:'audio-1',kind:'audio',original_name:'hello.m4a',bytes:40000,localOnly:true,visibility:'private'};
+ const html=execute('mediaList([m])','function mediaList(arr){','\nfunction settings(){',{
+  m,state:{batchIds:[],mode:'live',active:'book-1',shareLoading:null,preview:null},
+  shareReadyFiles:new Set(),currentCourses:()=>[{id:'book-1',title:'我的書本'}],
+  prettySize:()=> '40 KB',recordingDisplayTitle:x=>x,e
+ });
+ assert.ok(html.includes('data-batch-select="audio-1"'));
+ assert.ok(html.includes('<details class="rn-disclosure rn-media-more"'));
+ const advanced=html.indexOf('<summary>其他操作</summary>');
+ for(const a of ['downloadMedia','shareMediaFile','editAudio','enhanceVoiceAi','showTranscript','transcribe','toggleMediaPrivacy','deleteMedia'])
+  assert.ok(html.indexOf('data-action="'+a+'"')>advanced,'file action must be available in More: '+a);
+ validDetails(html);
+});
+test('cloud storage hides share and deletion, but keeps download as the primary action',()=>{
+ const html=execute('storagePage','function storagePage(){','\nasync function storageFile(',{
+  banner:()=>'',state:{mode:'live',cloudStorage:{plan:'free',used_bytes:40000,
+    available_bytes:500000000,quota_bytes:500040000,files:[
+     {id:'cloud-1',original_name:'hello.m4a',bytes:40000,deleted_at:null,ai_status:''}]},shareLoading:null},
+  prettySize:x=>Math.round(x/1024)+' KB',shareReadyFiles:new Set(),e
+ });
+ assert.ok(html.includes('data-action="storageDownload"'));
+ assert.ok(html.includes('data-ui-key="storage-cloud-1"'));
+ const hide=html.indexOf('<summary>其他操作</summary>');
+ assert.ok(html.indexOf('data-action="storageShareFile"')>hide);
+ assert.ok(html.indexOf('data-action="storagePurge"')>hide);
+ validDetails(html);
+});
