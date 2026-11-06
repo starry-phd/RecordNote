@@ -1,0 +1,30 @@
+name: RecordNote Geoapify release gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'cloudflare-candidate/**'
+      - 'cloudflare-baseline/**'
+      - 'tests/recordnote-location-candidate.test.mjs'
+      - '.github/workflows/recordnote-geoapify-release-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recordnote-geoapify-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  location-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify production-source Geoapify candidate and parse inline scripts
+        run: node --test tests/recordnote-location-candidate.test.mjs
