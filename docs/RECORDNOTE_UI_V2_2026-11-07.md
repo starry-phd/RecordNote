@@ -43,3 +43,28 @@
 - 快速 UI CI **14/14 PASS** https://github.com/yukidu/starry-recorder/actions/runs/42285795729，Geoapify 發布 Gate **17/17 PASS** https://github.com/yukidu/starry-recorder/actions/runs/42285267631。本次完整音檔 CI https://github.com/yukidu/starry-recorder/actions/runs/42285267678 最終取消（安裝 ffmpeg 的 runner 階段未完成），不可宣稱完整 CI 通過；本次未修改音訊模組，UI 專項 14/14 和發布 Gate 17/17 均已成功。
 - 已正式 Cloudflare Web Worker 部署 **100%**：version `417e97ee-e098-4212-9f7a-490a59224954`、deployment `6a9ac070-9cee-4610-a6a2-737c16411ebe`。可回退上版 `a094a072-ae0d-4f91-b24a-9aea6743e099`。API、D1、R2、Starry ID、Geoapify 中央 Worker 未修改。
 - 未執行真實 Android Chrome 的點擊與資料庫目視驗收，仍須由使用者手機重新整理並檢查；若 pending 真有其他歷史上傳工作，仍可能見到展開區，但正常 library 不應重複列出。
+
+
+## 2026-11-07｜首頁 7 筆以上精簡兩行清單 UI v3
+
+### 使用者需求與正式實作
+- 目標：手機首頁一般狀態下一個可視畫面容納約 7 筆以上錄音，但實際可見數仍受手機尺寸、字體放大、瀏覽器工具列、播放器展開影響，**尚未手機實機逐像素驗收，不保證任何機型一定有 7 筆**。
+- 取消首頁大標題「我的錄音」與「錄音紀錄」，移除大型 Hero 錄音按鈕、重複說明與其他操作區。保留上方一列簡潔的開始／停止錄音；進行中直接顯示計時與暫停／繼續。
+- **開始錄音不再離開錄音首頁**。修正 `ensureQuickCourse()` 在 home 路由只確定目標書本 ID，不呼叫 `openCourse()` 切頁；`quickRecord()` 在已錄音時改為停止，而非導向書本頁。書本、搜尋與其他既有頁面 UI 不重排。
+- 首頁每筆錄音高度約 62–65 CSS px，第一行：可點擊改名的錄音名稱、MM/DD HH:mm 錄音時間、可信來源的最細地名（最後一段）、音檔長度，右側「⋯」；第二行：播放、剪輯、本機／雲端（可同時顯示）、書本分類、確定來源時的匯入標籤。
+- 「⋯」手動展開其餘操作：重新命名、分享、下載、雲端備份、編輯地名、主動 GPS 辨識、查看儲存位置、移動書本、刪除。錄音紀錄／播放／開啟清單不會自動向 Geoapify 查詢。
+- 錄音位置只能呈現已獲授權並已辨識的最後一段地名，例如「苗栗縣後龍鎮龍坑里・十班坑附近」只顯示「十班坑附近」。若僅知道「苗栗縣後龍鎮」則用「—」，**不杜撰村里、聚落或精確地標**。
+- 自動產生檔名於首頁可簡化成「錄音 007」等易讀格式；完整檔名在右側更多選單的標題可查。點錄音名稱直接改名，既有本機音檔透過 IndexedDB 修改名稱紀錄、雲端音檔透過既有 `POST /v1/media/batch` 單筆 rename（numbered=false）更新 D1 原始檔名；**不重新編碼、重寫 R2 內容或既有 M4A 內嵌 mdta**。
+- 匯入來源：未來由「匯入音檔」功能選取或網址匯入的本機音訊設 `imported:true` 並隨本機雲端同步保留；已存在的歷史雲端檔案如未保存來源，不能僅憑檔名猜測，只有確定「匯入-」命名的舊資料可顯示標籤。跨裝置僅有雲端原始資料的舊音檔，目前未另建 DB 匯入欄位，因此可能沒有匯入標籤。
+- 匯入音檔入口仍保留在**全域「更多」**與書本操作內，不占首頁空間。從首頁手動將錄音備份到雲端後立即刷新畫面，顯示「本機」與「雲端」雙標籤且不跳頁。
+- `recordingTile()` 只用於首頁，因此書本頁等既有錄音明細保持之前的佈局與功能。
+
+### 驗證與部署
+- 程式版本：GitHub 分支 `feature/recordnote-m4a-metadata-20261106`，正式部署候選 commit `797faf8cd96437efbf88c87e63eede381cd81b3b`，Draft PR #2（未合併）。
+- UI 專用 Node 測試 **26/26 通過**：https://github.com/yukidu/starry-recorder/actions/runs/42291301718，含匯入／兩地儲存雙標籤、資料來源、改名 Blob 位元保持、GPS 最後欄位、安全降級、錄音首頁不跳頁等。
+- Geoapify／發布驗證 **17/17 通過**：https://github.com/yukidu/starry-recorder/actions/runs/42291242483。
+- 完整 FFmpeg/M4A workflow https://github.com/yukidu/starry-recorder/actions/runs/42291242287 在測試機安裝 FFmpeg 階段取消，因此**不能聲稱本次全部完整 CI 通過**。與前一正式 Worker 比對：嵌入 `MDTA_MODULE` 與 `mdTagFutureWebRecording()` 程式逐位元相同，沒有修改 M4A 讀寫核心；先前版本完整測試 58/58 PASS（https://github.com/yukidu/starry-recorder/actions/runs/42290237593）。
+- **正式 Cloudflare RecordNote Web** active 100% version `1633db72-d87b-4026-bb1a-860ea6f17156`，deployment `6f0fe2ce-9c6f-464b-aaa7-fa378c651f42`。可立即回退前一 Web version `17245bb0-83a3-4789-b09d-5b25543309ce`（再前版 `417e97ee-e098-4212-9f7a-490a59224954`）。
+- RecordNote API 仍 active `8105ecb0-5c55-44c4-bd32-c6b04375c64c`、Starry Location active `09f5bfaf-beeb-4a5f-9be1-c790661e6d00`，均無修改；現有 D1、R2 音檔、Starry ID 會員資料無批次修改。
+- Cloudflare 正式部署後已回讀確認：首頁 compact CSS、兩行元件、同頁錄音、改名功能、匯入標記、手動雲端備份即時標籤及原 M4A 寫入器都存在，流量 100%。
+- **限制**：未進行使用者 Android 實機的真實視覺與點擊端對端測試；實際是否 7 筆以上需依螢幕高度、瀏覽器工具列、顯示縮放及是否開啟播放器調整，不能把 CSS 預估當成真實量測。
