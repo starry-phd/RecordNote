@@ -111,18 +111,20 @@ test('desktop detection distinguishes Android, iPhone and iPad desktop-mode Safa
  assert.equal(run('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit',5),false);
 });
 test('mobile renders no Google Maps manual coordinates controls and desktop retains them',()=>{
- const backtick=String.fromCharCode(96);
- const begin=page.indexOf(String.fromCharCode(36,123)+'mdDesktopLocation()?'+backtick+'<p class="muted">有設定 Google 地圖座標');
- const end=page.indexOf('<p class="muted">錄音開始／結束／播放',begin);
- assert.ok(begin>0&&end>begin,'responsive settings UI interpolation exists');
- const template=page.slice(begin,end);
- const fake={e:x=>x,mdManualPoint:()=>null,mdGoogleMapsUrl:()=>'',mdManualRecordEnabled:()=>false};
- const mobile=runInNewContext(backtick+template+backtick,{...fake,mdDesktopLocation:()=>false});
- assert.ok(mobile.includes('手機版使用精確 GPS'));
+ const begin=page.indexOf('function settings(){'),end=page.indexOf('function dialog(){',begin);
+ assert.ok(begin>=0&&end>begin,'settings renderer exists');
+ const source=page.slice(begin,end);
+ const base={state:{mode:'live',uploadPolicy:{can_manage:true,max_file_mb:200},storageFolderName:'下載'},
+  readNameRule:()=>({prefix:'RecordNote',date:true,time:true,counter:true}),banner:()=>'',
+  gpsOptIn:()=>true,mdGeoOptIn:()=>true,mdManualPoint:()=>null,
+  mdGoogleMapsUrl:()=>'',mdManualRecordEnabled:()=>false,
+  e:x=>String(x),ID:'https://id.starry.phd'};
+ const mobile=runInNewContext(source+'\nsettings()', {...base,mdDesktopLocation:()=>false});
+ assert.ok(mobile.includes('手機使用 GPS'));
  assert.ok(!mobile.includes('manualMapInput'));
  assert.ok(!mobile.includes('Google 地圖選點'));
  assert.ok(!mobile.includes('manualRecordEnabled'));
- const desktop=runInNewContext(backtick+template+backtick,{...fake,mdDesktopLocation:()=>true});
+ const desktop=runInNewContext(source+'\nsettings()', {...base,mdDesktopLocation:()=>true});
  assert.ok(desktop.includes('manualMapInput'));
  assert.ok(desktop.includes('Google 地圖選點'));
  assert.ok(desktop.includes('lookupDesktopWifi'));
