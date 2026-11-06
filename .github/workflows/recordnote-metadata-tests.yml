@@ -7,6 +7,8 @@ on:
       - 'src/m4a-mdta.mjs'
       - 'src/web-recordnote-metadata.js'
       - 'tests/**'
+      - 'cloudflare-candidate/**'
+      - 'cloudflare-baseline/**'
       - '.github/workflows/recordnote-metadata-tests.yml'
   workflow_dispatch:
 
