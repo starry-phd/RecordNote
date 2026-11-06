@@ -31,3 +31,15 @@
 ## 未驗證與限制
 - 目前完成的是 **程式測試和 Cloudflare 活躍版本回讀**，未取得使用者手機/電腦上的視覺 QA 截圖、真實點擊流程或各裝置螢幕閱讀器實測；不應宣稱人工 UAT 全通過。
 - 真實畫面若出現過大的字體、浮動「更多」被底部遮擋、表單收合後使用不便、特定原生瀏覽器的布局差異，需按實機觀察調整，但不得因此刪除功能。
+
+
+## 2026-11-07｜本機錄音被誤列為待同步修復
+
+- 問題依據：使用者 Android 03:59 螢幕截圖顯示首頁頂部「待同步 6」，錄音清單「錄音紀錄 10」，上方出現另一大區「本機錄音／待同步」與重複音檔。
+- 已確認程式成因：`reloadPending()` 直接把 `RecordNoteOffline.list(owner)` 所有離線紀錄放進 `state.pending`，**沒有排除 `storage:'local-library'` 的一般已成功儲存音檔**。因此待同步數字並不可靠，會把正常本機錄音誤認為上傳工作；不應據此判定錄音遺失或上傳失敗。
+- 修正：從恢復的 pending queue 排除 `storage:'local-library'`，只保留合法音訊及本來獨立建立的真正待備份工作；`clearPendingRecording` 與 `retryPending` 加上本機 library 防誤操作保護，避免上傳流程意外刪除正常本機錄音。沒有對任何用戶錄音執行清理、上傳、刪除或資料遷移。
+- UI：登入狀態只顯示「已連線」，不顯示誤導性的「待同步 N」；首頁先呈現真正的「錄音紀錄」，如仍有真正獨立待備份任務，則只在清單**下方**顯示預設收合的「其他本機備份」，展開後有「下載備份」、「備份至雲端」。如果只有 6 筆正常本機 library 音檔，則 pending 區塊完全消失。
+- 回歸測試 `tests/recordnote-ui-v2.test.mjs` 新增：一般 local-library 不列 pending、6 筆本機錄音時 pending 為 0、真實 queue 仍可操作但收合、一般錄音不可誤刪/誤重試。新增 `.github/workflows/recordnote-ui-quick.yml` 快速 Node 測試，不依賴 FFmpeg 安裝。
+- 快速 UI CI **14/14 PASS** https://github.com/yukidu/starry-recorder/actions/runs/42285795729，Geoapify 發布 Gate **17/17 PASS** https://github.com/yukidu/starry-recorder/actions/runs/42285267631。原有音檔完整測試執行因 GitHub runner 安裝 ffmpeg 步驟仍進行中，不宣稱本次完整音檔 CI 已結束；本次無音訊模組內容變更。
+- 已正式 Cloudflare Web Worker 部署 **100%**：version `417e97ee-e098-4212-9f7a-490a59224954`、deployment `6a9ac070-9cee-4610-a6a2-737c16411ebe`。可回退上版 `a094a072-ae0d-4f91-b24a-9aea6743e099`。API、D1、R2、Starry ID、Geoapify 中央 Worker 未修改。
+- 未執行真實 Android Chrome 的點擊與資料庫目視驗收，仍須由使用者手機重新整理並檢查；若 pending 真有其他歷史上傳工作，仍可能見到展開區，但正常 library 不應重複列出。
