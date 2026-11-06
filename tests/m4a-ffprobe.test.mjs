@@ -55,3 +55,37 @@ for(const faststart of [false,true]){
     }finally{rmSync(dir,{recursive:true,force:true});}
   });
 }
+
+// Android Chrome MediaRecorder can emit fragmented MP4 (moov/moof/mdat),
+// unlike a conventional nonfragmented M4A produced by desktop codecs.
+test('fragmented AAC M4A: QuickTime mdta survives ffprobe without changing decoded audio',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'recordnote-fmp4-'));
+ try{
+  const input=join(dir,'fragmented.m4a'),streamed=join(dir,'tagged.m4a');
+  const opts=['-hide_banner','-loglevel','error','-f','lavfi',
+   '-i','sine=frequency=450:sample_rate=44100','-t','2','-c:a','aac','-b:a','96k',
+   '-movflags','+frag_keyframe+empty_moov+default_base_moof',input];
+  tool('ffmpeg',opts);
+  const original=new Uint8Array(readFileSync(input));
+  const moofs=Buffer.from(original).toString('latin1').split('moof').length-1;
+  assert.ok(moofs>=1,'Real file must contain movie fragments');
+  const expected=decodedHash(input);
+  const chunks=[];
+  const result=await embedMdtaStream({size:original.length,
+   readAt:async(o,n)=>original.subarray(o,o+n),write:async chunk=>chunks.push(chunk)},values);
+  assert.equal(result.audioUnmodified,true);
+  const output=new Uint8Array(result.bytes),parts=[];
+  let at=0;for(const chunk of chunks){output.set(chunk,at);at+=chunk.length;}
+  assert.equal(at,result.bytes);
+  writeFileSync(streamed,output);
+  const info=probe(streamed);
+  assert.ok(Object.values(info.format?.tags||{}).includes(values['com.apple.quicktime.title']),
+   'ffprobe must see metadata in fragmented audio');
+  assert.equal(decodedHash(streamed),expected);
+  assert.deepEqual(await readMdtaStream({size:output.length,
+   readAt:async(o,n)=>output.subarray(o,o+n)}),values);
+  // In-memory and stream writers must produce consistent mdta on the same input.
+  const inMemory=embedMdta(original,values);
+  assert.deepEqual(readMdta(inMemory),values);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
