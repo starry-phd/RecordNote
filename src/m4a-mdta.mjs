@@ -21,6 +21,42 @@ function patchChunkOffsets(moov,delta){const b=moov.slice();let count=0;function
  else if(a.type==='co64'){assert(a.bodyStart+8<=a.end,'BAD_CO64');const n=uint(b,a.bodyStart+4),p=a.bodyStart+8;assert(p+n*8<=a.end,'BAD_CO64_COUNT');for(let i=0;i<n;i++)set64(b,p+i*8,int64(b,p+i*8)+BigInt(delta));count+=n;}
  else if(childTypes.has(a.type)&&a.type!=='ilst'){walk(a.bodyStart+(a.type==='meta'?4:0),a.end,depth+1)}
  }}walk(8,b.length);assert(count>0,'NO_CHUNK_OFFSETS');return b}
+
+// Fragmented ISO BMFF may be produced by mobile MediaRecorder, even when the file is .m4a.
+// Moving a moov atom shifts all following moof/mdat atom positions by the same amount.
+// We only allow this when fragment data offsets are relative and the moov has no
+// ordinary sample-table chunk offsets. Absolute offsets, indexes and encryption
+// auxiliary offsets remain unsupported rather than risking corrupted audio.
+function assertFragmentedSafe(moov,moofs){
+ const m=atoms(moov,8,moov.length);
+ assert(m.some(a=>a.type==='mvex'),'FRAGMENT_MISSING_MVEX');
+ function checkTables(b,start,end,depth=0){
+  assert(depth<12,'FRAGMENT_MOOV_DEPTH');
+  for(const a of atoms(b,start,end)){
+   if(a.type==='stco'||a.type==='co64'){
+    assert(a.bodyStart+8<=a.end,'BAD_FRAGMENT_STBL');
+    assert(uint(b,a.bodyStart+4)===0,'FRAGMENT_MIXED_CHUNK_OFFSETS');
+   }else if(childTypes.has(a.type)&&a.type!=='ilst'){
+    checkTables(b,a.bodyStart+(a.type==='meta'?4:0),a.end,depth+1);
+   }
+  }
+ }
+ checkTables(moov,8,moov.length);
+ for(const chunk of moofs){
+  assert(chunk.length<=8*1024*1024,'FRAGMENT_MOOF_TOO_LARGE');
+  const mParts=atoms(chunk,8,chunk.length);
+  const trafs=mParts.filter(a=>a.type==='traf');
+  assert(trafs.length>0,'FRAGMENT_MISSING_TRAF');
+  for(const traf of trafs){
+   const parts=atoms(chunk,traf.bodyStart,traf.end);
+   const tfhd=parts.find(a=>a.type==='tfhd');
+   assert(tfhd&&tfhd.bodyStart+8<=tfhd.end,'FRAGMENT_MISSING_TFHD');
+   const flags=uint(chunk,tfhd.bodyStart)&0xffffff;
+   assert((flags&1)===0,'FRAGMENT_ABSOLUTE_BASE_OFFSET');
+   assert(!parts.some(a=>['saio','saiz','senc','uuid'].includes(a.type)),'FRAGMENT_AUXILIARY_OFFSETS');
+  }
+ }
+}
 function makeMdta(entries){const keys=[],items=[];let n=0;
  for(const [key,value] of entries){n++;const k=encoder.encode(key),v=encoder.encode(value);assert(k.length>=5&&k.length<=255,'KEY_LENGTH');assert(v.length<=65536,'VALUE_TOO_LONG');keys.push(concat(u32(k.length+8),encoder.encode('mdta'),k));items.push(box(String.fromCharCode(...u32(n)),box('data',concat(u32(1),u32(0),v))))}
  const handler=box('hdlr',concat(u32(0),u32(0),encoder.encode('mdta'),new Uint8Array(12),new Uint8Array(1)));
@@ -29,8 +65,11 @@ export function embedMdta(input,data,{maxFileBytes=60_000_000}={}){
  const b=input instanceof Uint8Array?input:new Uint8Array(input);
  assert(b.length>32&&b.length<=maxFileBytes,'UNSUPPORTED_SIZE');
  const top=atoms(b);assert(top.filter(a=>a.type==='moov').length===1&&top.some(a=>a.type==='mdat')&&top.some(a=>a.type==='ftyp'),'NOT_M4A');
- assert(!top.some(a=>['moof','sidx','mfra','wide'].includes(a.type)),'FRAGMENTED_OR_UNSUPPORTED');
- const moov=top.find(x=>x.type==='moov'),mdats=top.filter(x=>x.type==='mdat');assert(mdats.length===1,'MULTIPLE_MDAT');
+ assert(!top.some(a=>['sidx','mfra','wide','ssix'].includes(a.type)),'INDEXED_OR_UNSUPPORTED');
+ const moov=top.find(x=>x.type==='moov'),mdats=top.filter(x=>x.type==='mdat'),moofs=top.filter(x=>x.type==='moof');
+ if(moofs.length){
+  assertFragmentedSafe(b.subarray(moov.start,moov.end),moofs.map(a=>b.subarray(a.start,a.end)));
+ }else assert(mdats.length===1,'MULTIPLE_MDAT');
  assert(moov.header===8,'EXTENDED_MOOV_UNSUPPORTED');const moovOrig=b.slice(moov.start,moov.end);
  const children=atoms(moovOrig,8,moovOrig.length),udta=children.find(x=>x.type==='udta');assert(children.filter(x=>x.type==='udta').length<=1,'MULTI_UDTA');
  const candidates=Object.entries(data||{}).filter(([k,v])=>k.startsWith('com.apple.quicktime.')&&typeof v==='string'&&v.length>0);
@@ -43,12 +82,16 @@ export function embedMdta(input,data,{maxFileBytes=60_000_000}={}){
  const newUdta=udta?box('udta',concat(oldUdta.subarray(8),mdta)):box('udta',mdta);
  const nextChildren=children.map(c=>c===udta?newUdta:moovOrig.slice(c.start,c.end));if(!udta)nextChildren.push(newUdta);
  let nextMoov=box('moov',concat(...nextChildren));const delta=nextMoov.length-moovOrig.length;
- if(moov.start<mdats[0].start)nextMoov=patchChunkOffsets(nextMoov,delta);
+ if(!moofs.length&&moov.start<mdats[0].start)nextMoov=patchChunkOffsets(nextMoov,delta);
  const out=concat(b.subarray(0,moov.start),nextMoov,b.subarray(moov.end));
  // Atom structure + unchanged mdat are mandatory; never return a corrupt file.
- const outTop=atoms(out),outMdat=outTop.find(x=>x.type==='mdat');
- assert(outMdat.size===mdats[0].size,'MDAT_LENGTH_CHANGED');
- assert(out.subarray(outMdat.start,outMdat.end).every((x,i)=>x===b[mdats[0].start+i]),'MDAT_PAYLOAD_CHANGED');
+ const outTop=atoms(out),outMdats=outTop.filter(x=>x.type==='mdat');
+ assert(outMdats.length===mdats.length,'MDAT_COUNT_CHANGED');
+ for(let j=0;j<mdats.length;j++){
+  const before=mdats[j],after=outMdats[j];
+  assert(after.size===before.size,'MDAT_LENGTH_CHANGED');
+  assert(out.subarray(after.start,after.end).every((x,i)=>x===b[before.start+i]),'MDAT_PAYLOAD_CHANGED');
+ }
  return out;
 }
 export function readMdta(input){const b=input instanceof Uint8Array?input:new Uint8Array(input),top=atoms(b),moov=top.find(x=>x.type==='moov');if(!moov)return {};
@@ -70,10 +113,20 @@ export async function embedMdtaStream({size,readAt,write},data,{chunkBytes=512*1
  if(size32===1){head=await exact(i,16);count=Number(int64(head,8));hdr=16}
  if(size32===0)count=size-i;
  assert(Number.isSafeInteger(count)&&count>=hdr&&i+count<=size,'BAD_TOP_LEVEL_ATOM');top.push({type:kind,start:i,end:i+count,size:count,header:hdr});i+=count;}
- assert(top.filter(a=>a.type==='moov').length===1&&top.filter(a=>a.type==='mdat').length===1&&top.some(a=>a.type==='ftyp'),'NOT_M4A');
- assert(!top.some(a=>['moof','sidx','mfra','wide'].includes(a.type)),'FRAGMENTED_OR_UNSUPPORTED');
- const oldMoov=top.find(a=>a.type==='moov'),mdat=top.find(a=>a.type==='mdat');assert(oldMoov.header===8&&oldMoov.size<=maxMoovBytes,'MOOV_TOO_LARGE');
+ assert(top.filter(a=>a.type==='moov').length===1&&top.some(a=>a.type==='mdat')&&top.some(a=>a.type==='ftyp'),'NOT_M4A');
+ assert(!top.some(a=>['sidx','mfra','wide','ssix'].includes(a.type)),'INDEXED_OR_UNSUPPORTED');
+ const oldMoov=top.find(a=>a.type==='moov'),mdat=top.find(a=>a.type==='mdat'),moofs=top.filter(a=>a.type==='moof');
+ if(!moofs.length)assert(top.filter(a=>a.type==='mdat').length===1,'MULTIPLE_MDAT');
+ assert(oldMoov.header===8&&oldMoov.size<=maxMoovBytes,'MOOV_TOO_LARGE');
  const m=await exact(oldMoov.start,oldMoov.size),children=atoms(m,8,m.length),udta=children.find(a=>a.type==='udta');assert(children.filter(a=>a.type==='udta').length<=1,'MULTI_UDTA');
+ if(moofs.length){
+  const fragments=[];
+  for(const f of moofs){
+   assert(f.size<=8*1024*1024,'FRAGMENT_MOOF_TOO_LARGE');
+   fragments.push(await exact(f.start,f.size));
+  }
+  assertFragmentedSafe(m,fragments);
+ }
  const entries=Object.entries(data||{}).filter(([k,v])=>k.startsWith('com.apple.quicktime.')&&typeof v==='string'&&v.length>0);
  assert(entries.length>0&&entries.length<=100,'NO_FIELDS');
  const newMeta=makeMdta(entries);
@@ -82,7 +135,7 @@ export async function embedMdtaStream({size,readAt,write},data,{chunkBytes=512*1
  const newerUdta=box('udta',concat(oldUdta?oldUdta.subarray(8):new Uint8Array(0),newMeta));
  const parts=children.map(c=>c===udta?newerUdta:m.subarray(c.start,c.end));if(!udta)parts.push(newerUdta);
  let updatedMoov=box('moov',concat(...parts));const delta=updatedMoov.length-m.length;
- if(oldMoov.start<mdat.start)updatedMoov=patchChunkOffsets(updatedMoov,delta);
+ if(!moofs.length&&oldMoov.start<mdat.start)updatedMoov=patchChunkOffsets(updatedMoov,delta);
  // Read the entire source only in chunks; binary media bytes remain identical.
  let written=0;for(const a of top){if(a===oldMoov){await write(updatedMoov);written+=updatedMoov.length;continue}
  for(let i=a.start;i<a.end;i+=chunkBytes){const bytes=await exact(i,Math.min(chunkBytes,a.end-i));await write(bytes);written+=bytes.length}}
