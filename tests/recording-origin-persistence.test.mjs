@@ -13,7 +13,7 @@ function mockD1({neverPersists=false}={}){
     get row(){return row;},get insertCount(){return insertCount;},
     prepare(sql){return {bind(...args){return {
       async first(){assert.match(sql,/^SELECT/);return row&&row.media_id===args[0]?{...row}:null;},
-      async run(){assert.match(sql,/^INSERT/);assert.match(sql,/ON CONFLICT\\(media_id\\) DO NOTHING/);insertCount++;
+      async run(){assert.match(sql,/^INSERT/);assert.ok(sql.includes('ON CONFLICT(media_id) DO NOTHING'));insertCount++;
         const cols=['media_id','owner_id','client_recording_id','recorded_at_ms','recorded_timezone',
           'gps_lat','gps_lon','gps_accuracy_m','location_name','location_source','policy_revision',
           'metadata_write_status','created_at_ms'];
