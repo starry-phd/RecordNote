@@ -12,7 +12,7 @@ function slice(start,stop){
  assert.ok(a>=0&&b>a,'missing source section: '+start);
  return page.slice(a,b);
 }
-function execute(fn,start,stop,ctx){return runInNewContext(slice(start,stop)+'\n'+fn+'()',ctx)}
+function execute(fn,start,stop,ctx){return runInNewContext(slice(start,stop)+'\n'+(fn.includes('(')?fn:fn+'()'),ctx)}
 function validDetails(html){
  let n=0;for(const x of html.matchAll(/<\/?details\b[^>]*>/g)){
   n+=x[0].startsWith('</')?-1:1;assert.ok(n>=0,'unbalanced details');
@@ -30,7 +30,7 @@ test('five main routes: 4 obvious + More with old cloud/trash actions',()=>{
 });
 test('home keeps big record and hides import actions in More',()=>{
  const html=execute('home','function home(){','\nfunction booksPage(',{
-  allRecordings:()=>[],banner:()=>'',pendingMarkup:()=>'',playerMarkup:()=>'',state:{busy:false,rec:null}
+  allRecordings:()=>[],recordingTile:()=>'',banner:()=>'',pendingMarkup:()=>'',playerMarkup:()=>'',state:{busy:false,rec:null}
  });
  assert.ok(html.includes('data-action="quickRecord"'));
  assert.ok(html.includes('data-ui-key="home-actions"'));
@@ -38,7 +38,7 @@ test('home keeps big record and hides import actions in More',()=>{
 });
 test('record card primary Play and Share, all legacy actions available only after expansion',()=>{
  const m={id:'media-1',original_name:'20261107.m4a',course_id:'book-1',duration_seconds:5,bytes:44032,localOnly:true,gps:{lat:24.59939,lon:120.77735,accuracy:20}};
- const html=execute('recordingTile','function recordingTile(m){','\nfunction showRecordingLocation(',{
+ const html=execute('recordingTile(m)','function recordingTile(m){','\nfunction showRecordingLocation(',{
   m,state:{shareLoading:null,mode:'live'},currentCourses:()=>[{id:'book-1',title:'未分類'}],
   cloudSynced:()=>false,playbackClock:()=> '00:00:05',recordingDate:()=> '2026/11/07',
   recordingPlace:()=> 'GPS',recordingFormat:()=> 'M4A',prettySize:()=> '43 KB',
