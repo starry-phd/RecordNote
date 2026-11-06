@@ -100,3 +100,29 @@ test('home renders 9 rows without redundant section headings',()=>{
  assert.ok(!html.includes('<h1>我的錄音</h1>'));
  assert.ok(!html.includes('錄音紀錄</h2>'));
 });
+
+test('a downloaded and cloud-backed imported file shows both storage badges and its book',()=>{
+ const m={id:'record-1',original_name:'meeting.m4a',course_id:'book-1',
+  duration_seconds:5,localOnly:true,cloudMediaId:'cloud-1',imported:true};
+ const html=run(section('function recordingTile(m){','\nfunction showRecordingLocation('),
+ 'recordingTile(m)',{
+  m,currentCourses:()=>[{id:'book-1',title:'生活筆記'}],
+  cloudSynced:()=>true,compactRecordingPlace:()=> '十班坑附近',
+  compactRecordingTime:()=> '11/07 02:10',compactRecordingDuration:()=> '00:05',
+  recordingCompactName:()=> 'meeting.m4a',isImportedRecording:()=>true,
+  recordingDate:()=> '2026/11/07 02:10:24',state:{mode:'live'},
+  localPlaceInfo:()=>({}),e:x=>String(x)
+ });
+ assert.ok(html.includes('>本機</span>'));
+ assert.ok(html.includes('>雲端</span>'));
+ assert.ok(html.includes('>生活筆記</span>'));
+ assert.ok(html.includes('>匯入</span>'));
+ const parts=html.split('class="rn-mini-line2"');
+ assert.equal(parts.length,2);
+});
+test('uploading a local file refreshes storage labels on home without navigating to a book',()=>{
+ const code=section('async function syncLocalMedia(id,forAi=false){','async function deleteLocalMedia(');
+ assert.ok(code.includes("if(state.view==='home')render()"));
+ assert.ok(code.includes("if(state.view==='course'&&state.active===m.course_id)await openCourse(m.course_id)"));
+ assert.ok(code.includes('imported:m.imported===true'));
+});
