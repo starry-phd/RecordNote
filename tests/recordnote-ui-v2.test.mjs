@@ -132,3 +132,57 @@ test('cloud storage hides share and deletion, but keeps download as the primary 
  assert.ok(html.indexOf('data-action="storagePurge"')>hide);
  validDetails(html);
 });
+
+test('reloadPending excludes all ordinary local-library recordings without deleting any audio',async()=>{
+ const oldSaved={id:'record-1',owner:'user-1',kind:'audio',storage:'local-library',file:new Blob(['audio'])};
+ const pendingBackup={id:'backup-2',owner:'user-1',kind:'audio',file:new Blob(['audio']),name:'backup.m4a'};
+ const state={pending:[],volatilePending:[]};
+ await runInNewContext(slice('async function reloadPending(){','\nasync function keepPendingRecording(')+
+  '\nreloadPending()',{
+  state,Blob,currentUserScope:()=> 'user-1',
+  window:{RecordNoteOffline:{list:async()=>[oldSaved,pendingBackup]}}
+ });
+ assert.deepEqual(state.pending.map(x=>x.id),['backup-2']);
+ assert.equal(oldSaved.file.size,5,'saved audio file must remain untouched');
+});
+test('if all saved files are local-library, pending count is zero, no redundant list or sync banner',async()=>{
+ const state={pending:[],volatilePending:[]};
+ await runInNewContext(slice('async function reloadPending(){','\nasync function keepPendingRecording(')+
+  '\nreloadPending()',{
+  state,Blob,currentUserScope:()=> 'user-1',
+  window:{RecordNoteOffline:{list:async()=>Array.from({length:6},(_,i)=>({
+   id:'local-'+i,owner:'user-1',kind:'audio',storage:'local-library',file:new Blob(['abc'])
+  }))}}
+ });
+ assert.equal(state.pending.length,0);
+ const html=execute('pendingMarkup(true)','function pendingMarkup(all=false){','\nasync function retryPending(',{
+  state,currentUserScope:()=> 'user-1',e,recordingDisplayTitle:x=>x,prettySize:()=> '3 B'
+ });
+ assert.equal(html,'');
+});
+test('genuine pending backup is collapsed below normal recording list, and retains manual recovery buttons',()=>{
+ const row={id:'backup-1',owner:'user-1',kind:'audio',storage:undefined,
+  file:new Blob(['one']),name:'RecordNote-20261107-035900-011.m4a'};
+ const state={pending:[row],active:'book-1',mode:'live'};
+ const html=execute('pendingMarkup(true)','function pendingMarkup(all=false){','\nasync function retryPending(',{
+  state,currentUserScope:()=> 'user-1',e,recordingDisplayTitle:()=> '11/07 03:59 錄音',
+  prettySize:()=> '3 B'
+ });
+ assert.ok(html.startsWith('<details class="card rn-disclosure rn-pending-compact"'));
+ assert.ok(html.includes('其他本機備份'));
+ assert.ok(html.includes('備份至雲端'));
+ assert.ok(html.includes('下載備份'));
+ assert.ok(!html.includes('本機錄音／待同步'));
+ validDetails(html);
+ const home=slice('function home(){','\nfunction booksPage(');
+ assert.ok(home.indexOf('${pendingMarkup(true)}')>home.indexOf('<div class="recordings-grid">'),
+  'pending backups should be after the standard recordings, never ahead of them');
+ const header=slice('function header(){','\n\nfunction localPlaceInfo(');
+ assert.ok(!header.includes('待同步'));
+});
+test('never remove or retry ordinary saved local-library recordings as if they were pending',()=>{
+ const safe=slice('async function clearPendingRecording(entry){','function pendingMarkup(');
+ const retry=slice('async function retryPending(id){','function downloadPending(');
+ assert.ok(safe.includes("entry?.storage==='local-library'"));
+ assert.ok(retry.includes("x.storage!=='local-library'"));
+});
