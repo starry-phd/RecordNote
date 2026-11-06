@@ -280,7 +280,7 @@ async function principal(req,env){
   if(signature.byteLength!==64||!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,signature,signed))throw Error('BAD_SIGNATURE');
   const me=await fetch(new URL('/v1/me',base),{headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(9000)});if(!me.ok)throw Error('CENTRAL_SESSION_INVALID');
   const account=await me.json();const user=account.user_id??account.user?.user_id??account.user?.id;
-  if(user!==claims.sub||account.status!=='active')throw Error('ACCOUNT_NOT_ACTIVE');
+  if(user!==claims.sub||account.user?.status&&account.user.status!=='active')throw Error('ACCOUNT_NOT_ACTIVE');
   return claims.sub;
 }
 // RecordNote-only policy and authorization. The central Starry ID is read-only.
