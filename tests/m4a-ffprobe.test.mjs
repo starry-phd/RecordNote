@@ -64,7 +64,7 @@ test('fragmented AAC M4A: QuickTime mdta survives ffprobe without changing decod
   const input=join(dir,'fragmented.m4a'),streamed=join(dir,'tagged.m4a');
   const opts=['-hide_banner','-loglevel','error','-f','lavfi',
    '-i','sine=frequency=450:sample_rate=44100','-t','2','-c:a','aac','-b:a','96k',
-   '-movflags','+frag_keyframe+empty_moov+default_base_moof',input];
+   '-movflags','+frag_keyframe+empty_moov+default_base_moof+skip_trailer',input];
   tool('ffmpeg',opts);
   const original=new Uint8Array(readFileSync(input));
   const moofs=Buffer.from(original).toString('latin1').split('moof').length-1;
