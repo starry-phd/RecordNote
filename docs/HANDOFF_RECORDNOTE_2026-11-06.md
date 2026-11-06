@@ -57,3 +57,33 @@
 ## 給接手 AI 的短指令
 
 > 接續開發 RecordNote：先讀本文件、本 GitHub 功能分支及 Cloudflare 正式版，修復並驗證未來新錄音在手機、電腦間的錄音時間／時區／GPS／地名一致性，完成 M4A 中繼資料 Web 實測與 Expo 真正 App 串接；舊音檔不改。先對照、測試與備份，再經授權部署；更新 GitHub 交接與逐項驗收，勿宣稱未驗證的功能完成。
+
+
+## 6. 同日接手實際查核與修補（2026-11-06）
+
+### Cloudflare 正式部署（本次唯讀核對）
+- Cloudflare Starry 帳戶 `starry.phd@gmail.com` 中，正式 `recordnote-web` 100% 流量版本仍為 `55bd8d42-ed66-491c-8d2a-6c62f55620e1`；`recordnote` API 100% 流量版本仍為 `9f28746c-cc1b-4375-a41a-bb7690f9f999`。與上文快照一致。
+- 讀取正式 Worker 程式（非只看版本編號）確認 Web 有 `mdTagFutureWebRecording`、錄音來源 PUT；API 有 `rn_recording_origin_v1`、`PUT /v1/media/:id/recording-origin` 與 `GET /v1/storage` LEFT JOIN。
+- 對正式 RecordNote D1 僅讀取 `sqlite_master` 的 `media`／`rn_recording_origin_v1` 建表 SQL，未讀取任何會員或錄音內容，未執行 D1/R2 寫入。來源表以 `media_id` 為主鍵，含 `client_recording_id`、UTC 毫秒、IANA 時區、GPS、地名、政策與寫入狀態。
+- **未修改、部署或回退任何 Cloudflare Worker；未修改正式 D1/R2/Starry ID。**
+
+### 正式 Worker 現有風險（尚未修正正式服務）
+1. API `rnOriginRoute` 使用 `INSERT OR IGNORE`，執行後未驗證實際 D1 寫入。重試與競態可能在未落庫時收到成功回應；重試同一 ID+時間也未比較 GPS／時區／地名等全部欄位。
+2. `GET /v1/storage` 的 SQL 沒有回傳 `o.client_recording_id`，跨裝置無法直接核對原始錄音 UUID 與雲端媒體 ID 的映射。
+3. Web 上傳音檔與 `PUT recording-origin` 是兩次操作；第二次失敗時須保留已上傳的媒體 ID 並可安全重試，只重試來源資料 PUT，不可重新建立新錄音或重複上傳 R2。
+4. 正式 Web 尚未以 Android Chrome → 桌面登入同一 Starry ID 做實際端對端驗收；真實 M4A/ffprobe 與 Expo iOS／Android 也尚未重新驗證。
+
+### 本次 GitHub 草稿分支已交付
+- `src/web-recordnote-metadata.js`：將 `mdValues()` 一併放入安全回退 `try/catch`；時間／政策格式異常時回傳原檔與 `writer_failed`，不讓中繼資料例外中斷保存錄音。
+- `tests/web-recordnote-metadata.test.mjs`：UTC、非法日期、非 M4A、無啟用標籤等安全回退測試。
+- `src/recording-origin-persistence.mjs`：已就正式 D1 結構撰寫**待整合**的防護 helper，使用 `ON CONFLICT(media_id) DO NOTHING`，查回全部欄位比對；相同請求冪等，差異回報 `ORIGIN_IMMUTABLE`，無落庫回報 `ORIGIN_NOT_PERSISTED`。**尚未接入正式 Worker**。
+- `tests/recording-origin-persistence.test.mjs`：以假 D1 驗證新寫入、相同重試、不同 GPS 拒絕、空寫入拒絕。
+- `.github/workflows/recordnote-metadata-tests.yml`：Node 22 的 PR 自動測試，不使用 Secrets、正式 D1、R2 或部署。
+- 這些提交僅在 PR #2 的 Draft 分支，**不可將 isolated helper／mock 測試宣稱為正式後端修復或跨裝置 E2E 通過**。
+
+### 後續必須完成的整合 Gate
+1. 先安全匯入目前正式 Web/API 的完整可重現程式與非機密環境設定至受審分支，核對秘密資訊、綁定與版本差異；不直接以舊 GitHub 草稿覆蓋雲端。
+2. 在 staging Worker 真正接入 `storeOriginVerified`，保留原身分驗證、媒體歸屬、只限新錄音及合法時間檢查，錯誤要回非 2xx，成功須有讀回證據；`GET /v1/storage` 對新錄音返回 `client_recording_id`。不能掃描／改寫舊音檔。
+3. Web 實裝失敗後保留 `media_id` + 原始 UUID 的安全重試流程，驗證中斷、重登、併發、刪除及權限拒絕，不自動公開 GPS。
+4. 使用隔離測試會員及**新產生**的錄音做手機→桌面跨裝置比對，再以真 M4A 的 `ffprobe`／AAC 解碼與另一解析器驗證文字 mdta。既有 helper 不代表 75 種標籤全支援。
+5. 找到或建立真正 Expo 主程式後才可接線、EAS 編譯、真機 iOS／Android 驗收；Production 須在完整證據與回退準備後才發布。不得把 CI 綠燈當成上架或部署證據。
