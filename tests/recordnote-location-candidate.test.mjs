@@ -95,3 +95,52 @@ test('desktop mode permits stale or low-accuracy Wi-Fi while manual selection re
  assert.ok(page.includes('辨識所選座標地名'));
  assert.ok(!page.includes('GPS 精度不足或座標已過期'));
 });
+
+test('desktop detection distinguishes Android, iPhone and iPad desktop-mode Safari',()=>{
+ const begin=page.indexOf('function mdDesktopLocation(){');
+ const end=page.indexOf('let mdGeoBusy=',begin);
+ assert.ok(begin>0&&end>begin);
+ const fn=page.slice(begin,end);
+ const run=(ua,touches=0)=>runInNewContext(fn+'\nmdDesktopLocation()',{
+  navigator:{userAgent:ua,maxTouchPoints:touches},Number
+ });
+ assert.equal(run('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit'),true);
+ assert.equal(run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome'),true);
+ assert.equal(run('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile'),false);
+ assert.equal(run('Mozilla/5.0 (Linux; Android 15) Mobile'),false);
+ assert.equal(run('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit',5),false);
+});
+test('mobile renders no Google Maps manual coordinates controls and desktop retains them',()=>{
+ const backtick=String.fromCharCode(96);
+ const begin=page.indexOf(String.fromCharCode(36,123)+'mdDesktopLocation()?'+backtick+'<p class="muted">有設定 Google 地圖座標');
+ const end=page.indexOf('<p class="muted">錄音開始／結束／播放',begin);
+ assert.ok(begin>0&&end>begin,'responsive settings UI interpolation exists');
+ const template=page.slice(begin,end);
+ const fake={e:x=>x,mdManualPoint:()=>null,mdGoogleMapsUrl:()=>'',mdManualRecordEnabled:()=>false};
+ const mobile=runInNewContext(backtick+template+backtick,{...fake,mdDesktopLocation:()=>false});
+ assert.ok(mobile.includes('手機版使用精確 GPS'));
+ assert.ok(!mobile.includes('manualMapInput'));
+ assert.ok(!mobile.includes('Google 地圖選點'));
+ assert.ok(!mobile.includes('manualRecordEnabled'));
+ const desktop=runInNewContext(backtick+template+backtick,{...fake,mdDesktopLocation:()=>true});
+ assert.ok(desktop.includes('manualMapInput'));
+ assert.ok(desktop.includes('Google 地圖選點'));
+ assert.ok(desktop.includes('lookupDesktopWifi'));
+});
+test('desktop prioritizes selected Google Maps coordinates, mobile disallows manual and uses high accuracy GPS',()=>{
+ assert.ok(page.includes("if(desktop&&source==='device'&&mdManualPoint())source='manual'"));
+ assert.ok(page.includes("if(source==='manual'&&!desktop)throw Error"));
+ assert.ok(page.includes("if(source==='wifi'&&!desktop)throw Error"));
+ assert.ok(page.includes("if(!mdDesktopLocation())return null;"));
+ assert.ok(page.includes('if(!mdDesktopLocation())return false;'));
+ assert.ok(page.includes('enableHighAccuracy:!desktop,timeout:12000'));
+ assert.ok(page.includes('enableHighAccuracy:!mdDesktopLocation(),timeout:7000'));
+ assert.ok(page.includes("mdDesktopLocation()&&mdManualRecordEnabled()&&mdGeoOptIn()?mdManualPoint()||capturedGps:capturedGps"));
+});
+test('new location cache version discards old township-only cached name without modifying recordings',()=>{
+ assert.ok(page.includes("recordnote.location.geoapify.cache.v2"));
+ assert.ok(page.includes('if(x.version!==2'));
+ assert.ok(page.includes('const entry={version:2,lat:fix.lat'));
+ assert.ok(page.includes("(!desktop&&entry.level==='administrative'?'（Geoapify 尚無此點的村里或小地名資料）':'')"));
+ assert.ok(!page.includes("api('/v1/location/reverse'"));
+});
