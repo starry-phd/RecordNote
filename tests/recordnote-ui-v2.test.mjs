@@ -28,29 +28,39 @@ test('five main routes: 4 obvious + More with old cloud/trash actions',()=>{
   assert.ok(html.includes('data-action="'+a+'"'),'missing '+a);
  assert.ok(html.includes('<details class="nav-more"'));validDetails(html);
 });
-test('home keeps big record and hides import actions in More',()=>{
+test('home stays compact and removes redundant titles and promotional controls',()=>{
  const html=execute('home','function home(){','\nfunction booksPage(',{
   allRecordings:()=>[],recordingTile:()=>'',banner:()=>'',pendingMarkup:()=>'',playerMarkup:()=>'',state:{busy:false,rec:null}
  });
  assert.ok(html.includes('data-action="quickRecord"'));
- assert.ok(html.includes('data-ui-key="home-actions"'));
- assert.ok(html.includes('data-action="importOpen"'));validDetails(html);
+ assert.ok(html.includes('class="rn-mini-list"'));
+ assert.ok(html.includes('class="rn-home-recorder"'));
+ assert.ok(!html.includes('我的錄音'));
+ assert.ok(!html.includes('錄音紀錄'));
+ assert.ok(!html.includes('data-action="importOpen"'));validDetails(html);
 });
-test('record card primary Play and Share, all legacy actions available only after expansion',()=>{
- const m={id:'media-1',original_name:'20261107.m4a',course_id:'book-1',duration_seconds:5,bytes:44032,localOnly:true,gps:{lat:24.59939,lon:120.77735,accuracy:20}};
+test('record card has two compact rows; Play and Trim are visible, all others in right menu',()=>{
+ const m={id:'media-1',original_name:'RecordNote-20261107-021024-007.m4a',course_id:'book-1',
+ duration_seconds:5,bytes:44032,localOnly:true,gps:{lat:24.59939,lon:120.77735,accuracy:20}};
  const html=execute('recordingTile(m)','function recordingTile(m){','\nfunction showRecordingLocation(',{
-  m,state:{shareLoading:null,mode:'live'},currentCourses:()=>[{id:'book-1',title:'未分類'}],
-  cloudSynced:()=>false,playbackClock:()=> '00:00:05',recordingDate:()=> '2026/11/07',
-  recordingPlace:()=> 'GPS',recordingFormat:()=> 'M4A',recordingDisplayTitle:x=>x,prettySize:()=> '43 KB',
-  localPlaceInfo:()=>({}),e
+  m,state:{mode:'live'},currentCourses:()=>[{id:'book-1',title:'未分類'}],
+  cloudSynced:()=>false,recordingDate:()=> '2026/11/07 02:10:24',
+  compactRecordingPlace:()=> '十班坑附近',compactRecordingTime:()=> '11/07 02:10',
+  compactRecordingDuration:()=> '00:05',recordingCompactName:()=> '錄音 007',
+  isImportedRecording:()=>false,localPlaceInfo:()=>({}),e
  });
- const first=html.slice(0,html.indexOf('<details class="rn-disclosure rn-record-more"'));
- for(const a of ['playMedia','shareMediaFile'])assert.ok(first.includes('data-action="'+a+'"'));
- for(const a of ['editAudio','downloadMedia','syncLocal','editLocationName','resolveSavedRecordingGpsPlace','showRecordingLocation','deleteMedia']){
-  assert.ok(html.includes('data-action="'+a+'"'),'missing '+a);
-  assert.ok(!first.includes('data-action="'+a+'"'),'not hidden: '+a);
+ assert.ok(html.includes('class="rn-mini-line1"'));
+ assert.ok(html.includes('class="rn-mini-line2"'));
+ assert.ok(html.includes('十班坑附近'));
+ assert.ok(html.includes('11/07 02:10'));
+ for(const action of ['playMedia','editAudio','renameRecording'])assert.ok(html.includes('data-action="'+action+'"'));
+ const dropdown=html.indexOf('<div class="rn-mini-more-panel">');
+ for(const action of ['shareMediaFile','downloadMedia','syncLocal','editLocationName','resolveSavedRecordingGpsPlace','showRecordingLocation','deleteMedia']){
+  assert.ok(html.indexOf('data-action="'+action+'"')>dropdown,'not in More: '+action);
  }
- assert.ok(html.includes('data-move-audio="media-1"'));validDetails(html);
+ assert.ok(html.includes('data-move-audio="media-1"'));
+ assert.ok(html.includes('本機'));
+ validDetails(html);
 });
 test('settings account and location first; advanced options hidden, including deletion',()=>{
  const base={state:{mode:'live',uploadPolicy:{can_manage:true,max_file_mb:200},storageFolderName:'下載',pending:[]},
@@ -175,7 +185,7 @@ test('genuine pending backup is collapsed below normal recording list, and retai
  assert.ok(!html.includes('本機錄音／待同步'));
  validDetails(html);
  const home=slice('function home(){','\nfunction booksPage(');
- assert.ok(home.indexOf('${pendingMarkup(true)}')>home.indexOf('<div class="recordings-grid">'),
+ assert.ok(home.indexOf('${pendingMarkup(true)}')>home.indexOf('<div class="rn-mini-list"'),
   'pending backups should be after the standard recordings, never ahead of them');
  const header=slice('function header(){','\n\nfunction localPlaceInfo(');
  assert.ok(!header.includes('待同步'));
