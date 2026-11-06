@@ -51,7 +51,7 @@ test('local rename only changes persistent filename metadata, never Blob bytes',
  const old={id:'audio-1',storage:'local-library',name:'Old.m4a',file:blob,imported:true};
  let saved;
  const ctx={demoMedia:()=>({id:'audio-1',kind:'audio',original_name:'Old.m4a',localOnly:true}),
-  prompt:()=> '新錄音',Blob,state:{mode:'demo'},
+  prompt:()=> '新錄音',recordingCompactName:()=> 'Old.m4a',Blob,state:{mode:'demo'},
   window:{RecordNoteOffline:{get:async()=>old,save:async x=>{saved=x}}},
   loadLocalMedia:async()=>{},render:()=>{},notice:()=>{}};
  await run(section('async function renameRecording(id){','async function editMediaAudio(id){'),
@@ -62,7 +62,7 @@ test('local rename only changes persistent filename metadata, never Blob bytes',
 test('cloud-only rename calls existing single-item metadata API, no audio R2 overwrite',async()=>{
  let request;
  const ctx={demoMedia:()=>({id:'cloud-1',kind:'audio',original_name:'old.m4a',localOnly:false}),
-  prompt:()=> 'new',state:{mode:'live'},api:async(path,opt)=>{request={path,body:JSON.parse(opt.body)};return {success_count:1,failure_count:0}},
+  prompt:()=> 'new',recordingCompactName:()=> 'old.m4a',state:{mode:'live'},api:async(path,opt)=>{request={path,body:JSON.parse(opt.body)};return {success_count:1,failure_count:0}},
   refreshHomeRecordings:async()=>{},render:()=>{},notice:()=>{}};
  await run(section('async function renameRecording(id){','async function editMediaAudio(id){'),
  'renameRecording("cloud-1")',ctx);
