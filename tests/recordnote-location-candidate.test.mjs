@@ -86,6 +86,7 @@ test('untrusted URLs, Google short links, out-of-range coordinates and noncoordi
 test('desktop mode permits stale or low-accuracy Wi-Fi while manual selection remains explicit',()=>{
  assert.ok(page.includes('maximumAge:desktop?Infinity:30000'));
  assert.ok(page.includes("position_mode:coarse?'approximate':'precise'"));
+ assert.ok(page.includes("position_mode:mdDesktopLocation()&&(Number(p.coords.accuracy)>100||Date.now()-Number(p.timestamp)>300000)?'approximate':'precise'"));
  assert.ok(page.includes('accuracy>30000'));
  assert.ok(page.includes("source==='manual'"));
  assert.ok(page.includes("mdManualRecordEnabled()&&mdGeoOptIn()?mdManualPoint()||capturedGps:capturedGps"));
