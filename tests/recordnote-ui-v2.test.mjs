@@ -41,7 +41,7 @@ test('record card primary Play and Share, all legacy actions available only afte
  const html=execute('recordingTile(m)','function recordingTile(m){','\nfunction showRecordingLocation(',{
   m,state:{shareLoading:null,mode:'live'},currentCourses:()=>[{id:'book-1',title:'未分類'}],
   cloudSynced:()=>false,playbackClock:()=> '00:00:05',recordingDate:()=> '2026/11/07',
-  recordingPlace:()=> 'GPS',recordingFormat:()=> 'M4A',prettySize:()=> '43 KB',
+  recordingPlace:()=> 'GPS',recordingFormat:()=> 'M4A',recordingDisplayTitle:x=>x,prettySize:()=> '43 KB',
   localPlaceInfo:()=>({}),e
  });
  const first=html.slice(0,html.indexOf('<details class="rn-disclosure rn-record-more"'));
