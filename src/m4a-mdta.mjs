@@ -1,4 +1,4 @@
-/* QuickTime mdta metadata-only atom writer for existing, unfragmented M4A.
+/* QuickTime mdta metadata-only atom writer for existing regular or safely-relative fragmented M4A.
  * Zero audio transcoding. This code never touches mdat payload bytes.
  * Only explicit, standard QuickTime mdta keys are accepted by the caller.
  * Copyright notice: newly authored code for RecordNote.
