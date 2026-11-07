@@ -1,7 +1,8 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {ActivityIndicator,Alert,AppState,Image,Linking,Platform,Pressable,ScrollView,Share,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
+import {ActivityIndicator,Alert,AppState,Linking,Platform,Pressable,ScrollView,Share,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import {Image} from 'expo-image';
 import {Passkey} from 'react-native-passkey';
 import {
  acceptConsent,addPasskey,checkApp,clearLocalSignIn,centralPasskeyError,
@@ -141,8 +142,9 @@ export default function App(){
  const avatarUrl=typeof user?.profile?.avatar_url==='string'&&user.profile.avatar_url.startsWith('https://')
   ?user.profile.avatar_url:null;
  const initials=typeof user?.profile?.initials==='string'?user.profile.initials:''; // Central computes initials.
- const displayName=typeof user?.profile?.nickname==='string'&&user.profile.nickname?user.profile.nickname:
-  typeof user?.profile?.display_name==='string'&&user.profile.display_name?user.profile.display_name:'中央會員';
+ const avatarCacheKey=avatarUrl?avatarUrl.split('?')[0]:null; // NOT user_id: avatar path changes on upload.
+ const displayName=typeof user?.profile?.shown_name==='string'&&user.profile.shown_name?
+  user.profile.shown_name:initials; // Only Starry ID decides the primary display name.
  const gated=gate?.state!=='ok';
  const warning=!gate?'正在確認中央會員系統…':gate.state==='maintenance'?'繁星答錄機目前維護中。':
   gate.state==='killed'?'繁星答錄機已停止服務。':gate.state==='update_required'?'請更新 App 再繼續。':
@@ -167,7 +169,7 @@ export default function App(){
     <View style={styles.memberRow}>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{initials}</Text>
-        {avatarUrl&&!avatarFailed?<Image source={{uri:avatarUrl}} onError={()=>setAvatarFailed(true)} style={styles.avatarImage} accessibilityLabel="會員頭像"/>:null}
+        {avatarUrl&&!avatarFailed?<Image key={avatarCacheKey} source={{uri:avatarUrl,cacheKey:avatarCacheKey||undefined}} cachePolicy="disk" contentFit="cover" onError={()=>setAvatarFailed(true)} style={styles.avatarImage} accessibilityLabel="會員頭像"/>:null}
       </View>
       <View style={styles.memberDetails}>
         <Text style={styles.heading}>{displayName}</Text>
