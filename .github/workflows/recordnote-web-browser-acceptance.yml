@@ -1,0 +1,33 @@
+name: RecordNote candidate Web real browser acceptance
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-candidate/recordnote-web.mjs'
+      - 'cloudflare-candidate/recordnote-unified.mjs'
+      - 'scripts/build-recordnote-unified.mjs'
+      - 'vendor/starry-id/starry-client.ts'
+      - 'tests/recordnote-web-browser-acceptance.test.mjs'
+      - '.github/workflows/recordnote-web-browser-acceptance.yml'
+permissions:
+  contents: read
+jobs:
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install SDK and headless Chromium automation dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright-core@1.56.1
+      - name: Generate official SDK candidate only (no deployment)
+        run: npm run build:recordnote
+      - name: Verify browser host is available
+        run: |
+          command -v google-chrome || command -v chromium || command -v chromium-browser
+      - name: Run real Chromium UI acceptance using mocked public Central config
+        run: node --test tests/recordnote-web-browser-acceptance.test.mjs
