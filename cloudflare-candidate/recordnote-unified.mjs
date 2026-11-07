@@ -104,13 +104,13 @@ async function mdAdmin(req,env,user,p,method){
 /* RecordNote standalone Cloudflare Worker. No bundler required. The server validates
    Starry ID tokens and owns only RecordNote D1/R2. AI is fail-closed. */
 // Decimal MB is intentional: the 400 MB policy means 400,000,000 bytes.
-export const DEFAULT_UPLOAD_LIMIT_MB=400;
-export const MAX_CONFIGURABLE_MB=5000;
-export const UPLOAD_PART_BYTES=8*1024*1024; // R2 requires >= 5 MiB except final part
+const DEFAULT_UPLOAD_LIMIT_MB=400;
+const MAX_CONFIGURABLE_MB=5000;
+const UPLOAD_PART_BYTES=8*1024*1024; // R2 requires >= 5 MiB except final part
 const MAX_DIRECT_UPLOAD_BYTES=UPLOAD_PART_BYTES;
 const MAX_UPLOAD_BYTES=MAX_CONFIGURABLE_MB*1000*1000; // absolute guard only
-export const FREE_STORAGE_BYTES=500_000_000;
-export const PAID_STORAGE_BYTES=1_000_000_000; // Reserved: no client-side paid upgrade without verified entitlement.
+const FREE_STORAGE_BYTES=500_000_000;
+const PAID_STORAGE_BYTES=1_000_000_000; // Reserved: no client-side paid upgrade without verified entitlement.
 async function accountStorage(env,user){
  const planRow=await env.DB.prepare('SELECT plan,source FROM storage_plans WHERE owner_id=?').bind(user).first();
  const paid=planRow?.plan==='paid'&&['verified_entitlement','owner_grant'].includes(planRow.source);
@@ -143,7 +143,7 @@ const cleanName=s=>{let name='錄音';try{name=decodeURIComponent(String(s||name
 const safeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const decodePart=(s)=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-s.length%4)%4)),x=>x.charCodeAt(0));
 // Fail closed on image dimensions: inspect actual JPEG SOF, never trust client width/height alone.
-export function jpegDimensions(bytes){
+function jpegDimensions(bytes){
   if(bytes.length<11||bytes[0]!==255||bytes[1]!==216)return null;
   let i=2;while(i+9<bytes.length){
     if(bytes[i]!==255)return null;
@@ -195,19 +195,19 @@ function documentWord(text){
 
 /* Real Workers AI inference; protected by central ID, explicit opt-in and atomic per-day budgets.
    No Battery charge during the initial free activation. Do not simulate voice repair. */
-export const AI_MODELS=Object.freeze({transcribe:'@cf/openai/whisper-large-v3-turbo',text:'@cf/meta/llama-3.3-70b-instruct-fp8-fast'});
+const AI_MODELS=Object.freeze({transcribe:'@cf/openai/whisper-large-v3-turbo',text:'@cf/meta/llama-3.3-70b-instruct-fp8-fast'});
 const AI_AUDIO_LIMIT=3*1024*1024;
 const AI_AUDIO_SECONDS_LIMIT=600;
 const AI_QUOTA=Object.freeze({llm:{global:24,user:8},asr_minutes:{global:45,user:15}});
 // Starry ID centralized Battery contract. RecordNote must never run billed AI
 // without an owner-approved per-task price and an App-scoped service secret.
 // No default task is charged or enabled until the owner saves pricing.
-export const RN_AI_TASKS=Object.freeze({
+const RN_AI_TASKS=Object.freeze({
  summary:{task_type:'recordnote.summary',default_label:'AI 課程摘要'},
  question:{task_type:'recordnote.question',default_label:'AI 課程問答'},
  transcribe:{task_type:'recordnote.transcribe',default_label:'AI 語音逐字稿'}
 });
-export function validAiBatteryPricing(config){
+function validAiBatteryPricing(config){
  if(!config||typeof config!=='object'||Array.isArray(config)||!config.tasks||typeof config.tasks!=='object')return false;
  return Object.keys(RN_AI_TASKS).every(key=>{
   const row=config.tasks[key];
@@ -458,7 +458,7 @@ function isUploadSuperadmin(env,user){
  const ids=String(env.RECORDNOTE_SUPERADMIN_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
  return !!user&&ids.includes(user);
 }
-export function validUploadLimitMb(value){return Number.isSafeInteger(value)&&value>=1&&value<=MAX_CONFIGURABLE_MB;}
+function validUploadLimitMb(value){return Number.isSafeInteger(value)&&value>=1&&value<=MAX_CONFIGURABLE_MB;}
 
 async function uploadPolicy(env){
  const row=await env.DB.prepare("SELECT value FROM app_settings WHERE key='max_upload_mb'").first();
