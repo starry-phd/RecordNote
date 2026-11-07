@@ -32,5 +32,10 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
+      - name: Install dependencies, compile core and assemble official SDK Worker
+        run: |
+          npm install --no-audit --no-fund
+          npm run build:core
+          npm run build:recordnote
       - name: Run metadata and safe-fallback tests
         run: node --test tests/*.test.mjs
