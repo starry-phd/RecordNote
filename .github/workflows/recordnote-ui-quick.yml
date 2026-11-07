@@ -10,7 +10,7 @@ on:
       - tests/recordnote-compact-home.test.mjs
       - tests/recordnote-persistent-login.test.mjs
       - tests/recordnote-live-meter-min-duration.test.mjs
-      - tests/recordnote-battery-contract.test.mjs tests/recordnote-unified-worker.test.mjs
+      - tests/recordnote-battery-contract.test.mjs
       - tests/recordnote-unified-worker.test.mjs
       - cloudflare-candidate/recordnote-unified.mjs
       - .github/workflows/recordnote-ui-quick.yml
@@ -41,4 +41,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run pure-Node UI regression tests
-        run: node --test tests/recordnote-ui-v2.test.mjs tests/recordnote-compact-home.test.mjs tests/recordnote-persistent-login.test.mjs tests/recordnote-live-meter-min-duration.test.mjs tests/recordnote-battery-contract.test.mjs
+        run: node --test tests/recordnote-ui-v2.test.mjs tests/recordnote-compact-home.test.mjs tests/recordnote-persistent-login.test.mjs tests/recordnote-live-meter-min-duration.test.mjs tests/recordnote-battery-contract.test.mjs tests/recordnote-unified-worker.test.mjs
