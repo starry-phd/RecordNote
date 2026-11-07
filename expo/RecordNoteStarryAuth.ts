@@ -42,7 +42,7 @@ const passkey={
  async get(options:Record<string,unknown>){
   if(!Passkey.isSupported())throw new Error('PASSKEY_NOT_SUPPORTED');
   let result;
-  try{result=await Passkey.get(requireCentralRp(options));}
+  try{result=await Passkey.get(requireCentralRp(options) as unknown as Parameters<typeof Passkey.get>[0]);}
   catch(error){nativePasskeyFailure(error);}
   if(!result?.response)throw new Error('PASSKEY_CANCELLED');
   return {id:result.id,clientDataJSON:result.response.clientDataJSON,
@@ -51,7 +51,7 @@ const passkey={
  async create(options:Record<string,unknown>){
   if(!Passkey.isSupported())throw new Error('PASSKEY_NOT_SUPPORTED');
   let result;
-  try{result=await Passkey.create(requireCentralRp(options,true));}
+  try{result=await Passkey.create(requireCentralRp(options,true) as unknown as Parameters<typeof Passkey.create>[0]);}
   catch(error){nativePasskeyFailure(error);}
   if(!result?.response)throw new Error('PASSKEY_CANCELLED');
   return {clientDataJSON:result.response.clientDataJSON,

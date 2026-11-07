@@ -62,12 +62,13 @@ test('Native Passkey error normalization: cancellation silent and no-credential 
  assert.ok(start>0&&end>start);
  const js=ts.transpileModule(adapter.slice(start,end),{compilerOptions:{
   target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
- const ctx=createContext({Error,String});
+ const ctx=createContext({Error,String,StarryError:class StarryError extends Error {constructor(status,code,message){super(message);this.status=status;this.code=code;}}});
  runInContext(js,ctx);
- for(const [raw,normalized] of [['UserCancelled','UserCancelled'],
-  ['NoCredentials','NotFoundError'],['CredentialAlreadyExists','InvalidStateError'],
-  ['BadConfiguration','SecurityError']]){
+ for(const [raw,expected] of [['UserCancelled','PASSKEY_CANCELLED'],
+  ['NoCredentials','PASSKEY_NOT_FOUND'],['CredentialAlreadyExists','PASSKEY_EXISTS'],
+  ['BadConfiguration','PASSKEY_CONFIGURATION_REQUIRED']]){
   assert.throws(()=>runInContext("nativePasskeyFailure({error:'"+raw+"'})",ctx),
-   error=>error?.name===normalized);
+   error=>error?.code===expected);
  }
+
 });
