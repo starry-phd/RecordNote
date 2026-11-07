@@ -129,5 +129,6 @@ test('OAuth nonce remains tab-scoped and no cloud upload or phone recording sett
  assert.ok(page.includes('mobileCapture?stream:voice.stream'));
  assert.ok(!page.includes('sessionStorage.setItem(KEY_REFRESH,tokens.refresh_token)'));
  assert.ok(page.includes('saveRefreshToken(tokens.refresh_token)'));
- assert.ok(page.includes("window.addEventListener('online',()=>{void resumeSavedLogin();})"));
+ assert.ok(page.includes("window.addEventListener('online',()=>{void recordnoteForegroundCheck();})"));
+ assert.ok(page.includes("window.addEventListener('focus',()=>{void recordnoteForegroundCheck();})"));
 });
