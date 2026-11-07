@@ -9,6 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import {Passkey} from 'react-native-passkey';
 import {StarryClient,StarryError} from '../vendor/starry-id/starry-client';
 import {sharedSsoStorage} from '../native/StarrySharedSso';
+import {Platform} from 'react-native';
 
 const ID='https://id.starry.phd';
 const APP_ID='recordnote';
@@ -60,7 +61,7 @@ const passkey={
  }
 };
 export const starryClient=new StarryClient({
- baseUrl:ID,appId:APP_ID,storage,sharedStorage:sharedSsoStorage,passkey,
+ baseUrl:ID,appId:APP_ID,storage,sharedStorage:Platform.OS==='ios'?sharedSsoStorage:undefined,passkey,
  sha256Hex:(text)=>Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,text),
  randomState:()=>Crypto.randomUUID(),
  openAuthSession:async(url,returnUrl)=>{

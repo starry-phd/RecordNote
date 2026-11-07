@@ -27,8 +27,7 @@
     "plugins": [
       "expo-web-browser",
       "expo-secure-store",
-      "expo-dev-client",
-      "./plugins/withStarrySsoProvider"
+      "expo-dev-client"
     ],
     "extra": {
       "starryAppId": "recordnote"

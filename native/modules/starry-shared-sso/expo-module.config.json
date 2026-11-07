@@ -1,16 +1,10 @@
 {
   "platforms": [
-    "ios",
-    "android"
+    "ios"
   ],
   "ios": {
     "modules": [
       "StarrySharedSsoModule"
-    ]
-  },
-  "android": {
-    "modules": [
-      "phd.starry.sso.StarrySharedSsoModule"
     ]
   }
 }

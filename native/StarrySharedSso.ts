@@ -8,9 +8,9 @@ interface NativeSso {
 }
 // No fallback to per-App SecureStore: that would silently claim cross-App SSO
 // while actually leaving all other Starry Apps signed out.
-const native=requireNativeModule<NativeSso>('StarrySharedSso');
+const native=()=>requireNativeModule<NativeSso>('StarrySharedSso');
 export const sharedSsoStorage:StarryStorage={
- get:(key)=>native.get(key),
- set:(key,value)=>native.set(key,value),
- remove:(key)=>native.remove(key)
+ get:(key)=>native().get(key),
+ set:(key,value)=>native().set(key,value),
+ remove:(key)=>native().remove(key)
 };
