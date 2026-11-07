@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - run: npm install --no-audit --no-fund
+      - run: npm run starry:types
+      - run: test -s src/generated/starry-id.d.ts
       - name: Install FFmpeg and FFprobe for real M4A audio tests
         run: |
           sudo apt-get update -qq
