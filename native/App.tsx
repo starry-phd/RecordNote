@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {ActivityIndicator,Alert,AppState,Linking,Platform,Pressable,ScrollView,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
+import {ActivityIndicator,Alert,AppState,Image,Linking,Platform,Pressable,ScrollView,Share,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import {Passkey} from 'react-native-passkey';
@@ -32,13 +32,14 @@ function Button({text,onPress,disabled=false,danger=false}:{text:string;onPress:
 export default function App(){
  const [gate,setGate]=useState<AppGate|null>(null),[user,setUser]=useState<Me|null>(null);
  const [consent,setConsent]=useState(false),[passkeys,setPasskeys]=useState<Key[]>([]);
+ const [avatarFailed,setAvatarFailed]=useState(false);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmText,setConfirmText]=useState('');
  const lastCheck=useRef(0),checking=useRef(false),mounted=useRef(true);
  const gateState=useRef<AppGate|null>(null),syncing=useRef(false);
  const passkeySupported=Passkey.isSupported();
  const readUser=useCallback(async()=>{
   const data=await starryClient.me();
-  if(mounted.current){setUser(data);setConsent(Boolean(data.consent?.required));}
+  if(mounted.current){setAvatarFailed(false);setUser(data);setConsent(Boolean(data.consent?.required));}
  },[]);
  const readKeys=useCallback(async()=>{
   const data=await listPasskeys();
@@ -125,10 +126,25 @@ export default function App(){
  };
  const open=(url:string)=>void run(async()=>{await Linking.openURL(url);});
  const contact=()=>void run(async()=>{await Linking.openURL(await supportUrl(VERSION+' ('+BUILD+')',DEVICE));});
+ const invite=()=>void run(async()=>{
+  if(!user)return;
+  // member_no is mutable: retrieve fresh /v1/me before invoking native Share.
+  const currentUserId=user.user_id;
+  const me=await starryClient.me();
+  if(me.user_id!==currentUserId)return;
+  setUser(me);setAvatarFailed(false);
+  const memberNo=typeof me.member_no==='string'?me.member_no:'';
+  if(!memberNo){setMessage('尚未取得會員編號，請至中央帳號中心查看。');return;}
+  const url=ID+'/Invite/'+encodeURIComponent(memberNo);
+  await Share.share({message:url,url});
+ });
+ const avatarUrl=typeof user?.profile?.avatar_url==='string'&&user.profile.avatar_url.startsWith('https://')
+  ?user.profile.avatar_url:null;
+ const initials=user?.profile?.initials||''; // Always use initials computed by central.
  const gated=gate?.state!=='ok';
  const warning=!gate?'正在確認中央會員系統…':gate.state==='maintenance'?'繁星答錄機目前維護中。':
   gate.state==='killed'?'繁星答錄機已停止服務。':gate.state==='update_required'?'請更新 App 再繼續。':
-  gate.state==='unreachable'?'中央暫時無法連線；登入與電池扣量停止。':'';
+  gate.state==='unreachable'?'中央暫時無法連線；登入與 🔋 普通電池扣量停止。':'';
  return <View style={styles.root}>
   <StatusBar barStyle="dark-content"/>
   <ScrollView contentContainerStyle={styles.scroll}>
@@ -146,7 +162,20 @@ export default function App(){
    </View>:null}
    {!gated&&user?<View style={styles.card}>
     <Text style={styles.heading}>我的中央會員</Text>
-    <Text style={styles.muted}>會員 ID：{user.user_id}</Text>
+    <View style={styles.memberRow}>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{initials}</Text>
+        {avatarUrl&&!avatarFailed?<Image source={{uri:avatarUrl}} onError={()=>setAvatarFailed(true)} style={styles.avatarImage} accessibilityLabel="會員頭像"/>:null}
+      </View>
+      <View style={styles.memberDetails}>
+        <Text style={styles.heading}>{user.profile?.nickname||user.profile?.display_name||'中央會員'}</Text>
+        <Text style={styles.muted}>會員編號：{user.member_no||'尚未設定'}</Text>
+      </View>
+    </View>
+    {user.member_no?<>
+      <Button text="查看公開基本資料" disabled={busy} onPress={()=>open(ID+'/'+encodeURIComponent(user.member_no!))}/>
+      <Button text="分享邀請連結" disabled={busy} onPress={invite}/>
+    </>:null}
     <Button text="登出所有繁星 App" disabled={busy} onPress={logout}/>
     {consent?<View style={styles.card}>
       <Text style={styles.heading}>請同意最新版會員條款及隱私權政策</Text>
@@ -189,6 +218,7 @@ const styles=StyleSheet.create({
  button:{padding:13,backgroundColor:'#354e7a',borderRadius:8,alignItems:'center'},
  danger:{backgroundColor:'#9a2d36'},disabled:{opacity:.5},pressed:{opacity:.75},
  buttonText:{fontWeight:'600',fontSize:15,color:'#fff'},
+ memberRow:{flexDirection:'row',alignItems:'center',gap:12},memberDetails:{flex:1},avatar:{width:56,height:56,borderRadius:28,backgroundColor:'#e5e7eb',alignItems:'center',justifyContent:'center',overflow:'hidden'},avatarText:{fontSize:19,fontWeight:'700',color:'#334155'},avatarImage:{position:'absolute',width:56,height:56,borderRadius:28},
  muted:{fontSize:14,lineHeight:21,color:'#475569'},error:{color:'#b91c1c'},
  keyRow:{flexDirection:'row',alignItems:'center',gap:10},keyName:{flex:1},
  input:{borderWidth:1,borderColor:'#cbd5e1',borderRadius:7,padding:10}
