@@ -1,7 +1,7 @@
 # RecordNote 原生 Starry ID 驗收基座（非完整手機錄音 App）
 
 這是現有 PR #13 的增量，不建立第二套會員、Worker、D1、R2 或付費商品。
-使用 Expo SDK 58 / React Native 0.88 與官方 Starry Client。
+使用 Expo SDK 58 / React Native 0.88 與 Starry ID **2026-11-07.12** 官方 Starry Client。
 
 ## 驗收範圍
 - iOS／Android Google、Apple 中央瀏覽器登入中繼。
@@ -29,3 +29,11 @@
 - Apple Team ID 4W7QRTXN5Y 只由 Starry ID 中央維護，RecordNote 不填。
 
 正式網站 https://recordnote.starry.phd 與正式 API 使用既有單一 recordnote Worker，PR 不合併、不部署。
+
+## v2026-11-07.12 原生跨 App 共用登入橋接（待實機驗證）
+
+- `native/StarrySharedSso.ts` 提供 Starry SDK `sharedStorage`：共用鍵 `starry.sso`，由官方 SDK 操作 SSO start／status／exchange／logout；Native App 前景時每次執行 `restore()` 同步。
+- iPhone：以 `$(AppIdentifierPrefix)phd.starry.shared` 形式宣告 Keychain Access Group，由 iOS 簽章決定前綴，不在 RecordNote 輸入 Apple Team ID。其他 App 須由**相同 Apple Team** 簽章並使用相同群組。
+- Android：`content://phd.starry.recordnote.sso` 是 RecordNote 暫時擔任的共用憑證提供者，僅允許**相同 Android 簽署憑證** App 使用 `phd.starry.sso.permission.SHARED` 介面，SSO 憑證以 Android Keystore AES-GCM 加密。其他 App 需要配合此相同通道，且必須已安裝 RecordNote；未建立跨 App 共同標準前不能保證全部 App 通用。
+- Passkey 目前支援隨時新增，**不再要求 10 分鐘內重新登入**；每人最多 10 把。
+- **不能把「已串接共用儲存」當成「跨 App SSO 已在實機成功」**。仍要有另一款同團隊／同 Android 簽章的繁星 App 交叉測試、實機 iOS 權限測試和 Android Provider 權限測試。
