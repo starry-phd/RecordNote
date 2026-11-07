@@ -24,7 +24,15 @@ function sandbox({reply=balance,role='live',confirmed='DELETE'}={}){
  class FormDataMock {constructor(form){this.form=form;}get(name){return name==='confirm'?this.form.confirm:null;}}
  const ctx=createContext({
   state,APP_ID:'recordnote',ID:'https://id.starry.phd',String,Number,Date,Intl,JSON,Error,
-  FormData:FormDataMock,authGeneration:0,console,
+  FormData:FormDataMock,console,
+  // Account deletion uses the official Starry Client. Keep the request
+  // expectations while stubbing the client, not rebuilding its HTTP logic.
+  starryClient:{deleteAccount:async()=>{
+   calls.push({url:'https://id.starry.phd/v1/me/deletion',init:{
+    method:'POST',body:JSON.stringify({confirm:true})
+   }});
+   if(reply instanceof Error)throw reply;
+  }},
   e:value=>String(value),
   currentUserScope:()=>state.mode==='live'&&state.token?'member-1':'',
   authenticated:async(url,init)=>{calls.push({url,init});return {ok:true,status:202,json:async()=>reply};},
@@ -56,8 +64,8 @@ test('Read-only balance call uses Starry ID, no App service key or reservation',
  assert.ok(!h.calls[0].init.headers?.['x-starry-app-key']);
  assert.equal(h.state.memberBattery.balance.remaining,74);
  const ui=String(h.execute('memberBatterySection()'));
- assert.match(ui,/本月共用電池/);
- assert.match(ui,/RecordNote 量子電池/);
+ assert.ok(ui.includes('🔋 <strong>74</strong> 顆普通電池'));
+ assert.ok(ui.includes('⚛️ <strong>38</strong> 顆量子電池'));
  assert.match(ui,/38/);
  assert.match(ui,/先扣本月共用額度/);
 });
@@ -105,10 +113,10 @@ test('Confirmed deletion sends exactly one central API request and revokes local
  assert.equal(button.disabled,false);
 });
 
-test('Unconfirmed central deletion response does not claim success',async()=>{
- const h=sandbox({reply:{status:'unknown'}});
+test('Rejected central deletion never claims success or revokes the local session',async()=>{
+ const h=sandbox({reply:new Error('CENTRAL_DELETE_FAILED')});
  h.ctx.form={confirm:'DELETE',querySelector:()=>({disabled:false})};
- await assert.rejects(()=>h.execute('permanentlyDeleteStarryAccount(form)'),/DELETE_NOT_CONFIRMED/);
+ await assert.rejects(()=>h.execute('permanentlyDeleteStarryAccount(form)'),/CENTRAL_DELETE_FAILED/);
  assert.equal(h.cleared,0);
  assert.equal(h.reset,0);
  assert.equal(h.state.accountDeleteBusy,false);
@@ -123,4 +131,5 @@ test('UI includes a separate irreversible central account deletion consent flow'
  assert.ok(page.includes("event.target.id==='deleteStarryAccountForm'"));
  assert.ok(page.includes('不會自動取消 App Store／Google Play 訂閱'));
  assert.ok(!helpers.includes('STARRY_BATTERY_KEY'),'The browser must never contain the backend service key');
+ assert.ok(helpers.includes('await starryClient.deleteAccount()'),'Central deletion uses the official frontend SDK');
 });

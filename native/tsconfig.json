@@ -1,0 +1,33 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "paths": {
+      "expo-web-browser": [
+        "./node_modules/expo-web-browser"
+      ],
+      "expo-crypto": [
+        "./node_modules/expo-crypto"
+      ],
+      "expo-secure-store": [
+        "./node_modules/expo-secure-store"
+      ],
+      "react-native-passkey": [
+        "./node_modules/react-native-passkey"
+      ],
+      "expo-device": [
+        "./node_modules/expo-device"
+      ]
+    }
+  },
+  "include": [
+    "**/*.tsx",
+    "**/*.ts",
+    "../expo/RecordNoteStarryAuth.ts",
+    "../vendor/starry-id/starry-client.ts",
+    "StarrySharedSso.ts"
+  ]
+}

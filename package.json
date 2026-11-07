@@ -10,7 +10,9 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "cf:types": "wrangler types",
-    "cf:deploy": "node scripts/release-gate.mjs && wrangler deploy --config wrangler.jsonc"
+    "cf:deploy": "node scripts/release-gate.mjs && wrangler deploy --config wrangler.jsonc",
+    "starry:types": "openapi-typescript vendor/starry-id/starry-id.v1.json --output src/generated/starry-id.d.ts",
+    "build:recordnote": "node scripts/build-recordnote-unified.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -26,6 +28,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "^5.8.3",
     "vite": "^7.0.0",
-    "wrangler": "4.158.0"
+    "wrangler": "4.158.0",
+    "openapi-typescript": "7.10.1"
   }
 }

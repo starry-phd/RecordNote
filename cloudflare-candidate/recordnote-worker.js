@@ -238,6 +238,34 @@ async function batteryRequest(env,path,init={}){
  if(base.protocol!=='https:')throw Error('INVALID_STARRY_BASE');
  const url=new URL(path,base);
  if(url.origin!==base.origin)throw Error('BATTERY_ORIGIN_MISMATCH');
+ // In the bundled production Worker use the *unchanged* official single-file
+ // Starry SDK. Keep the direct-fetch branch only for standalone legacy tests.
+ if(typeof Starry==='function'){
+  const sdk=new Starry({
+   baseUrl:base.origin,serviceKey:env.STARRY_BATTERY_KEY,
+   fetch:(input,options)=>fetch(input,{...options,signal:AbortSignal.timeout(12000)})
+  });
+  try{
+   if(path==='/v1/battery/reservations'){
+    const body=JSON.parse(init.body||'{}');
+    const bearer=String(init.headers?.Authorization||init.headers?.authorization||'').replace(/^Bearer\s+/i,'');
+    const result=await sdk.reserve(bearer,{
+     taskType:body.task_type,taskLabel:body.task_label,units:body.units,
+     idempotencyKey:body.idempotency_key
+    });
+    return {ok:true,status:result.replayed?200:201,data:result};
+   }
+   const match=/^\/v1\/battery\/reservations\/([^/]+)\/(commit|release)$/.exec(path);
+   if(!match)throw Error('INVALID_SDK_BATTERY_PATH');
+   const id=decodeURIComponent(match[1]);
+   const result=match[2]==='commit'?await sdk.commit(id):await sdk.release(id);
+   return {ok:true,status:200,data:result};
+  }catch(error){
+   if(typeof StarryError==='function'&&error instanceof StarryError)
+    return {ok:false,status:error.status,code:String(error.code||'BATTERY_UNAVAILABLE').slice(0,80)};
+   throw error;
+  }
+ }
  const response=await fetch(url,{...init,signal:AbortSignal.timeout(12000),
   headers:{'Content-Type':'application/json','x-starry-app-key':env.STARRY_BATTERY_KEY,...init.headers}});
  const body=await response.json().catch(()=>({}));
@@ -436,8 +464,19 @@ async function principal(req,env){
   const key=await crypto.subtle.importKey('jwk',jwk,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
   const signed=new TextEncoder().encode(parts[0]+'.'+parts[1]);const signature=decodePart(parts[2]);
   if(signature.byteLength!==64||!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,signature,signed))throw Error('BAD_SIGNATURE');
-  const me=await fetch(new URL('/v1/me',base),{headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(9000)});if(!me.ok)throw Error('CENTRAL_SESSION_INVALID');
-  const account=await me.json();const user=account.user_id??account.user?.user_id??account.user?.id;
+  let account;
+  if(typeof Starry==='function'){
+   try{
+    account=await new Starry({
+     baseUrl:base.origin,
+     fetch:(input,options)=>fetch(input,{...options,signal:AbortSignal.timeout(9000)})
+    }).me(token);
+   }catch{throw Error('CENTRAL_SESSION_INVALID');}
+  }else{
+   const me=await fetch(new URL('/v1/me',base),{headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(9000)});
+   if(!me.ok)throw Error('CENTRAL_SESSION_INVALID');
+   account=await me.json();
+  }const user=account.user_id??account.user?.user_id??account.user?.id;
   if(user!==claims.sub||account.status!=='active'&&account.user?.status!=='active')throw Error('ACCOUNT_NOT_ACTIVE');
   verifiedCentralIdentity.set(req,{user_id:user,staff_role:account.staff_role||null});
   return claims.sub;

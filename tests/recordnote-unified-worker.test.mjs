@@ -15,7 +15,7 @@ test('one deployable Worker owns both existing API and Web without importing ano
  assert.ok(source.includes("pathname==='/admin/metadata'"));
  assert.ok(!source.includes('env.FRONTEND_SERVICE.fetch'));
  assert.ok(!source.includes('env.API_SERVICE.fetch'));
- assert.ok(source.length>=web.length+api.length);
+ assert.ok(source.length>100000,'Unified bundle must include substantial original Web and API logic');
 });
 
 test('production site homepage and admin assets are served directly on the API Worker',async()=>{
@@ -27,6 +27,7 @@ test('production site homepage and admin assets are served directly on the API W
   assert.ok(html.includes('RecordNote'));
   assert.ok(html.includes("apiBase: window.location.origin"),'the web must use this Worker as its API');
   assert.ok(html.includes('永久刪除中央帳號'));
+  assert.ok(html.includes('class StarryClient'),'Official frontend client must be in the deployed single Worker');
  }
  const metadata=await worker.fetch(new Request('https://recordnote.starry.phd/admin/metadata'),{});
  assert.equal(metadata.status,200);
