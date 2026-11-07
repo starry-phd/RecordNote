@@ -198,7 +198,7 @@ test('never remove or retry ordinary saved local-library recordings as if they w
 });
 
 test('mobile capture disables AEC and noise suppression and bypasses RecordNote voice DSP',async()=>{
- const section=slice('function isMobileRecordingClient(){','\nfunction stopRecord()');
+ const section=slice('const RECORDING_MIN_DURATION_MS=3000;','\nfunction stopRecord()');
  async function captureWith(device){
   const stream={getTracks:()=>[{stop:()=>{}}]};
   const enhancedStream={getTracks:()=>[{stop:()=>{}}]};
