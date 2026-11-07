@@ -190,7 +190,98 @@ export const AI_MODELS=Object.freeze({transcribe:'@cf/openai/whisper-large-v3-tu
 const AI_AUDIO_LIMIT=3*1024*1024;
 const AI_AUDIO_SECONDS_LIMIT=600;
 const AI_QUOTA=Object.freeze({llm:{global:24,user:8},asr_minutes:{global:45,user:15}});
-function aiEnabled(env){return env.AI_ENABLED==='true'&&env.AI&&typeof env.AI.run==='function'&&env.AI_BILLING_MODE==='free-limited';}
+// Starry ID centralized Battery contract. RecordNote must never run billed AI
+// without an owner-approved per-task price and an App-scoped service secret.
+// No default task is charged or enabled until the owner saves pricing.
+export const RN_AI_TASKS=Object.freeze({
+ summary:{task_type:'recordnote.summary',default_label:'AI 課程摘要'},
+ question:{task_type:'recordnote.question',default_label:'AI 課程問答'},
+ transcribe:{task_type:'recordnote.transcribe',default_label:'AI 語音逐字稿'}
+});
+export function validAiBatteryPricing(config){
+ if(!config||typeof config!=='object'||Array.isArray(config)||!config.tasks||typeof config.tasks!=='object')return false;
+ return Object.keys(RN_AI_TASKS).every(key=>{
+  const row=config.tasks[key];
+  return row&&typeof row==='object'&&
+   typeof row.label==='string'&&row.label.trim().length>=1&&row.label.trim().length<=40&&
+   typeof row.description==='string'&&row.description.length<=200&&
+   Number.isInteger(row.units)&&row.units>=1&&row.units<=100;
+ });
+}
+const RN_AI_PRICE_KEY='rn_ai_battery_prices_v1';
+async function aiPricing(env){
+ const row=await env.DB.prepare('SELECT value,updated_at_ms FROM app_settings WHERE key=?').bind(RN_AI_PRICE_KEY).first();
+ let value=null;try{value=row?JSON.parse(row.value):null;}catch{}
+ const configured=validAiBatteryPricing(value);
+ const tasks={};
+ for(const [key,def] of Object.entries(RN_AI_TASKS)){
+  const entry=configured?value.tasks[key]:null;
+  tasks[key]={task_type:def.task_type,label:entry?.label||def.default_label,
+   description:entry?.description||'',units:entry?.units??null};
+ }
+ return {configured,revision:Number(row?.updated_at_ms||0),tasks};
+}
+const verifiedCentralIdentity=new WeakMap();
+function isCentralOwner(req,user){
+ const info=verifiedCentralIdentity.get(req);
+ return !!user&&info?.user_id===user&&info.staff_role==='owner';
+}
+function batteryKeyReady(env){
+ return typeof env.STARRY_BATTERY_KEY==='string'&&env.STARRY_BATTERY_KEY.length>=32;
+}
+function batteryErrorStatus(status){
+ return status===400?400:status===401?401:status===403?403:
+   status===409?409:status===429?429:503;
+}
+async function batteryRequest(env,path,init={}){
+ const base=new URL(env.STARRY_ID_BASE);
+ if(base.protocol!=='https:')throw Error('INVALID_STARRY_BASE');
+ const url=new URL(path,base);
+ if(url.origin!==base.origin)throw Error('BATTERY_ORIGIN_MISMATCH');
+ const response=await fetch(url,{...init,signal:AbortSignal.timeout(12000),
+  headers:{'Content-Type':'application/json','x-starry-app-key':env.STARRY_BATTERY_KEY,...init.headers}});
+ const body=await response.json().catch(()=>({}));
+ if(!response.ok)return {ok:false,status:response.status,code:String(body?.error?.code||body?.error||'BATTERY_UNAVAILABLE').slice(0,80)};
+ return {ok:true,status:response.status,data:body};
+}
+async function reserveAiBattery(env,authorization,task,pricing,idempotencyKey){
+ if(!batteryKeyReady(env)||!validAiBatteryPricing({tasks:pricing}))return {ok:false,status:503,code:'BATTERY_NOT_CONFIGURED'};
+ if(typeof authorization!=='string'||!/^Bearer \S+$/i.test(authorization))return {ok:false,status:401,code:'LOGIN_REQUIRED'};
+ if(typeof idempotencyKey!=='string'||!/^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey))return {ok:false,status:400,code:'IDEMPOTENCY_KEY_REQUIRED'};
+ const price=pricing[task];if(!price)return {ok:false,status:400,code:'INVALID_TASK'};
+ try{
+  const result=await batteryRequest(env,'/v1/battery/reservations',{method:'POST',
+   headers:{Authorization:authorization},body:JSON.stringify({
+    task_type:RN_AI_TASKS[task].task_type,task_label:price.label,units:price.units,
+    idempotency_key:idempotencyKey
+   })});
+  if(!result.ok)return result;
+  const reservation=result.data;
+  if(typeof reservation?.reservation_id!=='string'||!reservation.reservation_id)return {ok:false,status:503,code:'BATTERY_INVALID_RESPONSE'};
+  if(result.status===200||reservation.replayed===true)return {ok:false,status:409,code:'AI_TASK_ALREADY_RESERVED'};
+  return {ok:true,id:reservation.reservation_id,units:price.units};
+ }catch{return {ok:false,status:503,code:'BATTERY_UNAVAILABLE'};}
+}
+async function finishAiBattery(env,reservationId,action){
+ if(!batteryKeyReady(env)||typeof reservationId!=='string')return false;
+ try{
+  const result=await batteryRequest(env,'/v1/battery/reservations/'+encodeURIComponent(reservationId)+'/'+action,{
+   method:'POST',body:action==='commit'?'{}':undefined
+  });
+  return result.ok;
+ }catch{return false;}
+}
+async function beginAiTask(env,req,task){
+ if(!aiEnabled(env))return {error:fail('BATTERY_NOT_CONFIGURED',503)};
+ const policy=await aiPricing(env);
+ if(!policy.configured)return {error:fail('BATTERY_PRICE_NOT_CONFIGURED',503)};
+ const idempotencyKey=req.headers.get('x-recordnote-ai-idempotency-key')||'';
+ const result=await reserveAiBattery(env,req.headers.get('authorization'),task,policy.tasks,idempotencyKey);
+ if(!result.ok)return {error:fail(result.code,batteryErrorStatus(result.status))};
+ return {reservationId:result.id,units:result.units};
+}
+
+function aiEnabled(env){return env.AI_ENABLED==='true'&&env.AI&&typeof env.AI.run==='function'&&env.AI_BILLING_MODE==='free-limited'&&batteryKeyReady(env);}
 function toBase64(bytes){let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(binary);}
 function extractText(reply){const t=reply?.response??reply?.result?.response??reply?.text;return typeof t==='string'?t.trim():'';}
 async function quotaReserve(env,user,task,units){
@@ -280,7 +371,8 @@ async function principal(req,env){
   if(signature.byteLength!==64||!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,signature,signed))throw Error('BAD_SIGNATURE');
   const me=await fetch(new URL('/v1/me',base),{headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(9000)});if(!me.ok)throw Error('CENTRAL_SESSION_INVALID');
   const account=await me.json();const user=account.user_id??account.user?.user_id??account.user?.id;
-  if(user!==claims.sub||account.user?.status&&account.user.status!=='active')throw Error('ACCOUNT_NOT_ACTIVE');
+  if(user!==claims.sub||account.status!=='active'&&account.user?.status!=='active')throw Error('ACCOUNT_NOT_ACTIVE');
+  verifiedCentralIdentity.set(req,{user_id:user,staff_role:account.staff_role||null});
   return claims.sub;
 }
 // RecordNote-only policy and authorization. The central Starry ID is read-only.
@@ -411,7 +503,7 @@ async function removeCourse(env,c){
 }
 async function file(env,m){const object=await env.MEDIA.get(m.r2_key);if(!object)return fail('FILE_NOT_FOUND',404);return new Response(object.body,{headers:{'content-type':m.mime_type,'cache-control':'private, no-store','x-content-type-options':'nosniff'}});}
 async function payload(req){try{return await req.json();}catch{return {};}}
-function corsHeaders(req,env){const o=req.headers.get('origin');return o&&env.ALLOWED_ORIGIN===o?{'access-control-allow-origin':o,'access-control-allow-headers':'Authorization,Content-Type,If-Match,X-RecordNote-Publish-Confirmation,X-RecordNote-Name,X-RecordNote-Location-Consent,X-RecordNote-Kind,X-RecordNote-Visibility,X-RecordNote-Duration,X-RecordNote-Width,X-RecordNote-Height,X-RecordNote-Client-Id','access-control-allow-methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS','access-control-max-age':'300','vary':'Origin'}:{'vary':'Origin'};}
+function corsHeaders(req,env){const o=req.headers.get('origin');return o&&env.ALLOWED_ORIGIN===o?{'access-control-allow-origin':o,'access-control-allow-headers':'Authorization,Content-Type,If-Match,X-RecordNote-AI-Idempotency-Key,X-RecordNote-Publish-Confirmation,X-RecordNote-Name,X-RecordNote-Location-Consent,X-RecordNote-Kind,X-RecordNote-Visibility,X-RecordNote-Duration,X-RecordNote-Width,X-RecordNote-Height,X-RecordNote-Client-Id','access-control-allow-methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS','access-control-max-age':'300','vary':'Origin'}:{'vary':'Origin'};}
 
 // Legacy provider retired: all new Geoapify requests go through Starry Location Service.
 async function recordnoteReverseTaiwanLocation(req,env,user){return fail('LOCATION_PROVIDER_MOVED_TO_CENTRAL_SERVICE',410);}
@@ -568,6 +660,34 @@ async function route(req,env){
     return respond({ok:true,id:ref.id,url:urlValue,label});
   }
   // A user sees current policy; only this Worker's allowlisted superadmin can change it.
+  // AI task pricing and Battery units are RecordNote-owned settings, not
+  // global Starry ID tariffs. Only central owner can change them.
+  if(p==='/v1/ai-battery-policy'&&method==='GET'){
+   const policy=await aiPricing(env);
+   return respond({...policy,can_manage:isCentralOwner(req,user),
+    ready:policy.configured&&aiEnabled(env),scope:'recordnote',max_units:100});
+  }
+  if(p==='/v1/admin/ai-battery-policy'&&method==='PUT'){
+   if(!isCentralOwner(req,user))return fail('FORBIDDEN',403);
+   const body=await payload(req);
+   if(!validAiBatteryPricing(body))return fail('INVALID_BATTERY_PRICING',422);
+   const previous=await aiPricing(env);
+   if(req.headers.get('if-match')!=='"policy-'+previous.revision+'"')return fail('CONFIG_CONFLICT',409);
+   const value={tasks:{}};
+   for(const task of Object.keys(RN_AI_TASKS)){
+    const row=body.tasks[task];
+    value.tasks[task]={label:row.label.trim(),description:row.description.trim(),units:row.units};
+   }
+   const now=Math.max(Date.now(),previous.revision+1),entryId=id();
+   const updated=await env.DB.batch([
+    env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at_ms) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms WHERE app_settings.updated_at_ms=?")
+      .bind(RN_AI_PRICE_KEY,JSON.stringify(value),user,now,previous.revision),
+    env.DB.prepare("INSERT INTO rn_ai_battery_policy_audit(id,actor_user_id,old_revision,new_revision,policy_json,created_at_ms) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM app_settings WHERE key=? AND updated_at_ms=? AND updated_by=?)")
+      .bind(entryId,user,previous.revision,now,JSON.stringify(value),now,RN_AI_PRICE_KEY,now,user)
+   ]);
+   if(updated?.[0]?.meta?.changes!==1)return fail('CONFIG_CONFLICT',409);
+   return respond({saved:true,revision:now,configured:true,tasks:(await aiPricing(env)).tasks});
+  }
   if(p==='/v1/upload-policy'&&method==='GET'){
     const mb=await uploadPolicy(env);
     return respond({max_file_mb:mb,max_file_bytes:mb*1000000,part_size_bytes:UPLOAD_PART_BYTES,unlimited_duration:true,can_manage:isUploadSuperadmin(env,user),minimum_mb:1,maximum_mb:MAX_CONFIGURABLE_MB});
