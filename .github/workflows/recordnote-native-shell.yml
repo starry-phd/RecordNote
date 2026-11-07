@@ -1,0 +1,29 @@
+name: RecordNote native Starry ID acceptance shell
+on:
+  pull_request:
+    paths:
+      - 'native/**'
+      - 'expo/RecordNoteStarryAuth.ts'
+      - 'vendor/starry-id/starry-client.ts'
+      - 'tests/recordnote-native-acceptance-shell.test.mjs'
+      - '.github/workflows/recordnote-native-shell.yml'
+permissions:
+  contents: read
+jobs:
+  native-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22.13'}
+      - name: Install isolated Expo dependencies
+        run: npm install --prefix native --no-audit --no-fund
+      - name: Strict TypeScript verification
+        run: npm run typecheck --prefix native
+      - name: Validate native registered identity without deployment
+        run: |
+          cd native
+          node -e "const c=require('./app.json').expo;if(c.scheme!=='recordnote'||c.ios.bundleIdentifier!=='phd.starry.recordnote'||c.android.package!=='phd.starry.recordnote'||!c.ios.associatedDomains.includes('webcredentials:id.starry.phd'))process.exit(1)"
+      - name: Native Starry ID contract tests
+        run: node --test tests/recordnote-native-acceptance-shell.test.mjs

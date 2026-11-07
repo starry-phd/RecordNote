@@ -4,7 +4,21 @@
     "strict": true,
     "jsx": "react-jsx",
     "moduleResolution": "bundler",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "expo-web-browser": [
+        "./node_modules/expo-web-browser"
+      ],
+      "expo-crypto": [
+        "./node_modules/expo-crypto"
+      ],
+      "expo-secure-store": [
+        "./node_modules/expo-secure-store"
+      ],
+      "react-native-passkey": [
+        "./node_modules/react-native-passkey"
+      ]
+    }
   },
   "include": [
     "**/*.tsx",
