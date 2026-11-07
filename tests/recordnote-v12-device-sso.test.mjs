@@ -21,7 +21,7 @@ test('Vendored central v12 SDK and OpenAPI support all 4 SSO routes',()=>{
   assert.ok(sdk.includes(method),method);
 });
 test('Native Client passes one secure device-shared storage adapter, not a fake local Store',()=>{
- assert.match(auth,/sharedStorage:Platform\\.OS==='ios'\\?sharedSsoStorage:undefined/);
+ assert.ok(auth.includes("sharedStorage:Device.osName==='iOS'?sharedSsoStorage:undefined"));
  assert.match(bridge,/requireNativeModule<NativeSso>\('StarrySharedSso'\)/);
  assert.ok(!bridge.includes('SecureStore.getItemAsync'));
  assert.ok(!auth.includes('請重新登入（10 分鐘內）'));
@@ -35,7 +35,7 @@ test('v14 Android shared SSO is optional, not registered and not a release block
  assert.ok(!config.plugins.includes('./plugins/withStarrySsoProvider'));
  assert.deepEqual(nativeModuleConfig.platforms,['ios']);
  assert.equal(nativeModuleConfig.android,undefined);
- assert.ok(auth.includes("Platform.OS==='ios'?sharedSsoStorage:undefined"));
+ assert.ok(auth.includes("Device.osName==='iOS'?sharedSsoStorage:undefined"));
  assert.ok(bridge.includes("const native=()=>requireNativeModule"));
 });
 test('iOS shared Keychain group derives its prefix from signing entitlements',()=>{
