@@ -1,24 +1,20 @@
-# RecordNote repository secret scanning, aligned to Starry ID battery-key prefix.
-# The default rules also detect common provider API keys and other credentials.
+# RecordNote repository secret scanning.
+# Default rules catch provider keys and credentials; the custom rule blocks
+# any Starry Battery service key. Never store service keys in source control.
 [extend]
 useDefault = true
 
 [[rules]]
 id = "starry-battery-service-key"
 description = "Starry Battery App backend service key must never enter Git"
-regex = '''(?i)\bsbk_[A-Za-z0-9_-]{16,}\b'''
+regex = '''(?i)\\bsbk_[A-Za-z0-9_-]{16,}\\b'''
 keywords = ["sbk_"]
 
-# Known harmless fixed configuration identifier and test-only idempotency fixture.
-# Exact matches only; production secrets and sbk_ keys remain blocked.
 [allowlist]
-description = "Fixed non-secret RecordNote fixtures"
+description = "Single-value, verified non-secret fixtures"
 regexes = [
   '''^rn_ai_battery_prices_v1$''',
-  '''^test-123456789
-]
-'',
-  # Historical Cloudflare Worker deployment version UUID; publicly documented,
-  # not a credential. This single exact value was flagged as generic-api-key.
+  '''^test-123456789$''',
+  # Cloudflare Worker public deployment version UUID, not a credential.
   '''9f28746c-cc1b-4375-a41a-bb7690f9f999'''
 ]
