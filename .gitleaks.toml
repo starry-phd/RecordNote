@@ -1,0 +1,10 @@
+# RecordNote repository secret scanning, aligned to Starry ID battery-key prefix.
+# The default rules also detect common provider API keys and other credentials.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "starry-battery-service-key"
+description = "Starry Battery App backend service key must never enter Git"
+regex = '''(?i)\bsbk_[A-Za-z0-9_-]{16,}\b'''
+keywords = ["sbk_"]
