@@ -14,7 +14,7 @@ const contract=page.slice(start,end);
 
 function gate(response){
  const ctx=createContext({
-  APP_ID:'recordnote',
+  APP_ID:'recordnote',recordnoteActiveNotices:()=>[],
   central:async(path,init)=>{
    assert.equal(path,'/v1/apps/recordnote/config');
    assert.equal(init.cache,'no-store');
