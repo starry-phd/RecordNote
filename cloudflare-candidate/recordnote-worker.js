@@ -389,6 +389,41 @@ async function aiTranscribe(env,req,m,user){
   return fail('AI_TRANSCRIPTION_FAILED',503);
  }
 }
+// Cache only public Starry ID signing keys, scoped to each configured issuer origin.
+// Expired cache entries are refreshed; an unknown kid triggers a forced refresh to
+// support overlapping old/new signing keys during rotation. Never skip JWT verification.
+const RN_JWKS_CACHE_MS=5*60*1000;
+const rnJwksCache=new Map();
+async function rnLoadJwks(base,forceRefresh=false){
+ const origin=base.origin;
+ const previous=rnJwksCache.get(origin);
+ if(!forceRefresh&&previous?.keys&&Date.now()-previous.fetchedAt<RN_JWKS_CACHE_MS)return previous.keys;
+ if(previous?.loading)return previous.loading;
+ const loading=(async()=>{
+  const response=await fetch(new URL('/.well-known/jwks.json',base),{signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw Error('STARRY_ID_UNAVAILABLE');
+  const body=await response.json();
+  if(!Array.isArray(body?.keys))throw Error('INVALID_STARRY_JWKS');
+  return body.keys;
+ })();
+ rnJwksCache.set(origin,{keys:previous?.keys,fetchedAt:previous?.fetchedAt??0,loading});
+ try{
+  const keys=await loading;
+  rnJwksCache.set(origin,{keys,fetchedAt:Date.now()});
+  return keys;
+ }catch(error){
+  if(previous?.keys)rnJwksCache.set(origin,{keys:previous.keys,fetchedAt:previous.fetchedAt});
+  else rnJwksCache.delete(origin);
+  throw error;
+ }
+}
+async function rnVerifierJwk(base,kid){
+ const match=keys=>keys.find(k=>k.kid===kid&&k.kty==='EC'&&k.crv==='P-256'&&(!k.alg||k.alg==='ES256'));
+ let jwk=match(await rnLoadJwks(base));
+ if(!jwk)jwk=match(await rnLoadJwks(base,true));
+ if(!jwk)throw Error('INVALID_SIGNER');
+ return jwk;
+}
 async function principal(req,env){
   const match=/^Bearer\s+(\S+)$/i.exec(req.headers.get('authorization')||'');
   if(!match)throw Error('LOGIN_REQUIRED');
@@ -397,8 +432,7 @@ async function principal(req,env){
   if(header.alg!=='ES256'||!header.kid||claims.iss!==env.STARRY_ISSUER||claims.app_id!=='recordnote'||!(claims.aud==='starry'||Array.isArray(claims.aud)&&claims.aud.includes('starry'))||typeof claims.sub!=='string'||!claims.sub||!Number.isFinite(claims.exp))throw Error('APP_SCOPE_DENIED');
   const now=Math.floor(Date.now()/1000);if(claims.exp<=now||claims.nbf>now||claims.iat>now+120)throw Error('TOKEN_EXPIRED');
   const base=new URL(env.STARRY_ID_BASE);if(base.protocol!=='https:')throw Error('BAD_ID_BASE');
-  const keysResponse=await fetch(new URL('/.well-known/jwks.json',base),{signal:AbortSignal.timeout(8000)});if(!keysResponse.ok)throw Error('STARRY_ID_UNAVAILABLE');
-  const keys=await keysResponse.json();const jwk=keys.keys?.find(k=>k.kid===header.kid&&k.kty==='EC'&&k.crv==='P-256'&&(!k.alg||k.alg==='ES256'));if(!jwk)throw Error('INVALID_SIGNER');
+  const jwk=await rnVerifierJwk(base,header.kid);
   const key=await crypto.subtle.importKey('jwk',jwk,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
   const signed=new TextEncoder().encode(parts[0]+'.'+parts[1]);const signature=decodePart(parts[2]);
   if(signature.byteLength!==64||!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,signature,signed))throw Error('BAD_SIGNATURE');
