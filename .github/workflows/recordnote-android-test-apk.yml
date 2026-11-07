@@ -46,7 +46,12 @@ jobs:
           set +o pipefail
           yes | "$SDKMANAGER" --licenses > /dev/null
           set -o pipefail
-          "$SDKMANAGER" --install "platforms;android-37" "build-tools;37.0.0"
+          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;37.0.0"
+          # Google publishes Android 37 as android-37.0; some Gradle plugins
+          # still request android-37. Both names refer to the same platform.
+          if test -d "$ANDROID_HOME/platforms/android-37.0" && ! test -e "$ANDROID_HOME/platforms/android-37"; then
+            ln -s "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
+          fi
       - name: Install isolated Expo dependencies
         run: npm install --prefix native --no-audit --no-fund
       - name: Generate Android Gradle project
