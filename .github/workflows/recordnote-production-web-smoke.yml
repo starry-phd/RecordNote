@@ -1,0 +1,41 @@
+name: RecordNote unified production hostname smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/recordnote-production-web-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-web-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify both original public domains route to one healthy Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://recordnote.starry.phd
+          API=https://recordnote-api.starry.phd
+          curl --fail-with-body --silent --show-error --location --max-time 20 "$BASE/" -o /tmp/rn-live-web.html
+          grep -Fq 'apiBase: window.location.origin' /tmp/rn-live-web.html
+          grep -Fq 'RecordNote' /tmp/rn-live-web.html
+          curl --fail-with-body --silent --show-error --location --max-time 20 "$BASE/health" -o /tmp/rn-live-health.json
+          curl --fail-with-body --silent --show-error --location --max-time 20 "$API/health" -o /tmp/rn-old-api-health.json
+          node -e "for(const f of ['/tmp/rn-live-health.json','/tmp/rn-old-api-health.json']){const h=require(f);if(h.ok!==true||h.d1!==true||h.r2!==true)process.exit(1)}"
+          curl --fail-with-body --silent --show-error --max-time 20 "$BASE/assets/m4a-mdta.mjs" -o /dev/null
+          curl --fail-with-body --silent --show-error --max-time 20 "$BASE/admin/metadata" -o /dev/null
+          for url in "$BASE/v1/courses" "$API/v1/courses"; do
+            status="$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code}' "$url")"
+            test "$status" = 401
+          done
+          preflight="$(curl --silent --show-error --max-time 20 -X OPTIONS -o /dev/null -w '%{http_code}' "$BASE/v1/courses")"
+          test "$preflight" = 204
+          echo 'One Worker, both production hostnames, API health and assets verified.'
