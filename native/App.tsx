@@ -34,6 +34,7 @@ export default function App(){
  const [consent,setConsent]=useState(false),[passkeys,setPasskeys]=useState<Key[]>([]);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmText,setConfirmText]=useState('');
  const lastCheck=useRef(0),checking=useRef(false),mounted=useRef(true);
+ const gateState=useRef<AppGate|null>(null),syncing=useRef(false);
  const passkeySupported=Passkey.isSupported();
  const readUser=useCallback(async()=>{
   const data=await starryClient.me();
@@ -43,23 +44,41 @@ export default function App(){
   const data=await listPasskeys();
   if(mounted.current)setPasskeys(data);
  },[]);
+ const syncMember=useCallback(async()=>{
+  // Always consult shared device SSO on every foreground transition,
+  // including when remote config is throttled to once per minute.
+  if(syncing.current)return;
+  syncing.current=true;
+  try {
+   const signedIn=await restoreSignIn(); // official SDK restore() includes syncDeviceSignIn()
+   if(!mounted.current)return;
+   if(!signedIn){setUser(null);setConsent(false);setPasskeys([]);return;}
+   try{await readUser();}
+   catch {if(mounted.current)setMessage('已保留登入資料，稍後重新讀取會員資訊。');}
+  }catch{
+   if(mounted.current)setMessage('無法同步其他繁星 App 的登入狀態，請檢查網路。');
+  }finally{syncing.current=false;}
+ },[readUser]);
  const checkCentral=useCallback(async(force=false)=>{
-  if(checking.current||(!force&&Date.now()-lastCheck.current<FOREGROUND_INTERVAL_MS))return;
+  if(checking.current)return;
+  if(!force&&Date.now()-lastCheck.current<FOREGROUND_INTERVAL_MS){
+   if(gateState.current?.state==='ok')await syncMember();
+   return;
+  }
   checking.current=true;lastCheck.current=Date.now();
   try{
    const current=await checkApp(VERSION);
    if(!mounted.current)return;
-   setGate(current);
+   gateState.current=current;setGate(current);
    if(current.state!=='ok')return;
-   const signedIn=await restoreSignIn();
-   if(!signedIn){setUser(null);setConsent(false);setPasskeys([]);return;}
-   if(signedIn){
-    try{await readUser();}
-    catch{if(mounted.current)setMessage('已保留登入資料，稍後重新讀取會員資訊。');}
+   await syncMember();
+  }catch{
+   if(mounted.current){
+    const failed:AppGate={state:'unreachable',notices:[],config:{},minVersion:null};
+    gateState.current=failed;setGate(failed);
    }
-  }catch{if(mounted.current)setGate({state:'unreachable',notices:[],config:{},minVersion:null});}
-  finally{checking.current=false;}
- },[readUser]);
+  }finally{checking.current=false;}
+ },[syncMember]);
  useEffect(()=>{
   mounted.current=true;void checkCentral(true);
   const listener=AppState.addEventListener('change',state=>{if(state==='active')void checkCentral();});

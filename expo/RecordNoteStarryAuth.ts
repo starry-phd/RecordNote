@@ -8,6 +8,7 @@ import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import {Passkey} from 'react-native-passkey';
 import {StarryClient,StarryError} from '../vendor/starry-id/starry-client';
+import {sharedSsoStorage} from '../native/StarrySharedSso';
 
 const ID='https://id.starry.phd';
 const APP_ID='recordnote';
@@ -59,7 +60,7 @@ const passkey={
  }
 };
 export const starryClient=new StarryClient({
- baseUrl:ID,appId:APP_ID,storage,passkey,
+ baseUrl:ID,appId:APP_ID,storage,sharedStorage:sharedSsoStorage,passkey,
  sha256Hex:(text)=>Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,text),
  randomState:()=>Crypto.randomUUID(),
  openAuthSession:async(url,returnUrl)=>{
@@ -68,6 +69,8 @@ export const starryClient=new StarryClient({
  },
  deviceLabel:'RecordNote Native'
 });
+// Device SSO is owned by the official Client; never manually exchange its token.
+export async function syncDeviceSignIn(){return starryClient.syncDeviceSignIn();}
 export function centralPasskeyError(error:unknown):string|null{
  const e=error as {code?:string;name?:string;message?:string;cancelled?:boolean};
  const code=String(e?.code||e?.name||e?.message||'');

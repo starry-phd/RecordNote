@@ -24,6 +24,7 @@
     "**/*.tsx",
     "**/*.ts",
     "../expo/RecordNoteStarryAuth.ts",
-    "../vendor/starry-id/starry-client.ts"
+    "../vendor/starry-id/starry-client.ts",
+    "StarrySharedSso.ts"
   ]
 }
