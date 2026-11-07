@@ -35,11 +35,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK 37 and Build Tools 37
+      - name: Install Android SDK 37 using runner's existing cmdline-tools
+        shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install "platforms;android-37" "build-tools;37.0.0"
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER" || { echo "::error::SDK manager missing on runner"; exit 1; }
+          # The third-party setup-android action tries to install removed 'tools' package.
+          # The hosted runner already supplies Android SDK command-line tools.
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          set -o pipefail
+          "$SDKMANAGER" --install "platforms;android-37" "build-tools;37.0.0"
       - name: Install isolated Expo dependencies
         run: npm install --prefix native --no-audit --no-fund
       - name: Generate Android Gradle project
