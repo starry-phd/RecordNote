@@ -7,7 +7,7 @@ useDefault = true
 [[rules]]
 id = "starry-battery-service-key"
 description = "Starry Battery App backend service key must never enter Git"
-regex = '''(?i)\\bsbk_[A-Za-z0-9_-]{16,}\\b'''
+regex = '''(?i)\bsbk_[A-Za-z0-9_-]{16,}\b'''
 keywords = ["sbk_"]
 
 [allowlist]
