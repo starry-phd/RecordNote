@@ -1,0 +1,39 @@
+name: RecordNote production API candidate smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/recordnote-production-api-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-api-candidate-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only health, Web shell and central App status
+        env:
+          BASE: https://recordnote-api.starry.phd
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --location --max-time 20 "$BASE/health" -o /tmp/api-health.json
+          node -e "const h=require('/tmp/api-health.json');if(h.ok!==true||h.d1!==true||h.r2!==true)process.exit(1)"
+          curl --fail-with-body --silent --show-error --location --max-time 20 "$BASE/" -o /tmp/api-site.html
+          grep -Fq 'apiBase: window.location.origin' /tmp/api-site.html
+          curl --fail-with-body --silent --show-error --max-time 20 "$BASE/assets/m4a-mdta.mjs" -o /dev/null
+          curl --fail-with-body --silent --show-error --max-time 20 "$BASE/admin/metadata" -o /dev/null
+          status="$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code}' "$BASE/v1/courses")"
+          test "$status" = 401
+          preflight="$(curl --silent --show-error --max-time 20 -X OPTIONS -o /dev/null -w '%{http_code}' "$BASE/v1/courses")"
+          test "$preflight" = 204
+          curl --fail-with-body --silent --show-error --location --max-time 20             https://id.starry.phd/v1/apps/recordnote/config -o /tmp/recordnote-config.json
+          node -e "const x=require('/tmp/recordnote-config.json');if(x.app_id!=='recordnote'||x.status!=='active')process.exit(1)"
+          echo 'Production API unified candidate smoke passed.'

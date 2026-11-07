@@ -1,0 +1,44 @@
+name: RecordNote UI quick regression
+
+on:
+  push:
+    branches:
+      - feature/recordnote-m4a-metadata-20261106
+    paths:
+      - cloudflare-candidate/recordnote-web.mjs
+      - tests/recordnote-ui-v2.test.mjs
+      - tests/recordnote-compact-home.test.mjs
+      - tests/recordnote-persistent-login.test.mjs
+      - tests/recordnote-live-meter-min-duration.test.mjs
+      - tests/recordnote-battery-contract.test.mjs
+      - tests/recordnote-unified-worker.test.mjs
+      - cloudflare-candidate/recordnote-unified.mjs
+      - .github/workflows/recordnote-ui-quick.yml
+  pull_request:
+    paths:
+      - cloudflare-candidate/recordnote-web.mjs
+      - tests/recordnote-ui-v2.test.mjs
+      - tests/recordnote-compact-home.test.mjs
+      - tests/recordnote-persistent-login.test.mjs
+      - tests/recordnote-live-meter-min-duration.test.mjs
+      - tests/recordnote-battery-contract.test.mjs
+      - tests/recordnote-unified-worker.test.mjs
+      - cloudflare-candidate/recordnote-unified.mjs
+      - .github/workflows/recordnote-ui-quick.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-regression:
+    name: Offline recording UI safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run pure-Node UI regression tests
+        run: node --test tests/recordnote-ui-v2.test.mjs tests/recordnote-compact-home.test.mjs tests/recordnote-persistent-login.test.mjs tests/recordnote-live-meter-min-duration.test.mjs tests/recordnote-battery-contract.test.mjs tests/recordnote-unified-worker.test.mjs

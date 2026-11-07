@@ -1,0 +1,43 @@
+name: RecordNote staging unified Worker external smoke
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-candidate/recordnote-unified.mjs'
+      - 'tests/recordnote-unified-worker.test.mjs'
+      - '.github/workflows/recordnote-staging-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-unified-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check staging Worker publicly without auth or writes
+        env:
+          BASE: https://recordnote-staging.starry-phd.workers.dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --location --max-time 20 "$BASE/health" -o /tmp/rn-health.json
+          node -e "const h=require('/tmp/rn-health.json');if(h.ok!==true||h.d1!==true||h.r2!==true)process.exit(1)"
+          curl --fail-with-body --silent --show-error --location --max-time 20 "$BASE/" -o /tmp/rn-index.html
+          grep -Fq 'apiBase: window.location.origin' /tmp/rn-index.html
+          grep -Fq 'RecordNote' /tmp/rn-index.html
+          curl --fail-with-body --silent --show-error --location --max-time 20 "$BASE/assets/m4a-mdta.mjs" -o /tmp/rn-m4a.mjs
+          test "$(wc -c </tmp/rn-m4a.mjs)" -gt 100
+          for path in /index.html /admin/metadata; do
+            curl --fail-with-body --silent --show-error --max-time 20 "$BASE$path" -o /dev/null
+          done
+          status="$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code}' "$BASE/v1/courses")"
+          test "$status" = 401
+          preflight="$(curl --silent --show-error --max-time 20 -X OPTIONS -o /dev/null -w '%{http_code}' "$BASE/v1/courses")"
+          test "$preflight" = 204
+          echo 'Staging unified Worker smoke passed without mutations.'

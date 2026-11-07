@@ -1,0 +1,20 @@
+# RecordNote repository secret scanning.
+# Default rules catch provider keys and credentials; the custom rule blocks
+# any Starry Battery service key. Never store service keys in source control.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "starry-battery-service-key"
+description = "Starry Battery App backend service key must never enter Git"
+regex = '''(?i)\bsbk_[A-Za-z0-9_-]{16,}\b'''
+keywords = ["sbk_"]
+
+[allowlist]
+description = "Single-value, verified non-secret fixtures"
+regexes = [
+  '''^rn_ai_battery_prices_v1$''',
+  '''^test-123456789$''',
+  # Cloudflare Worker public deployment version UUID, not a credential.
+  '''9f28746c-cc1b-4375-a41a-bb7690f9f999'''
+]
