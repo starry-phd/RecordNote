@@ -1,0 +1,85 @@
+# Build a signed internal test APK, inspect SHA-256 from that same APK.
+# Draft PR #13 only. Does NOT deploy, sign with production key or alter Starry ID.
+name: RecordNote Android test APK SHA256
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'native/**'
+      - 'expo/RecordNoteStarryAuth.ts'
+      - 'vendor/starry-id/starry-client.ts'
+      - '.github/workflows/recordnote-android-test-apk.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recordnote-test-apk-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  android-test-apk:
+    if: github.event.pull_request.number == 13 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 37 and Build Tools 37
+        run: |
+          set -euo pipefail
+          sdkmanager --install "platforms;android-37" "build-tools;37.0.0"
+      - name: Install isolated Expo dependencies
+        run: npm install --prefix native --no-audit --no-fund
+      - name: Generate Android Gradle project
+        working-directory: native
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: Build test APK with Android debug signing key
+        working-directory: native/android
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+      - name: Read SHA256 from actual signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="native/android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK" || { echo "::error::Signed APK not produced"; exit 1; }
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n1)"
+          test -x "$APKSIGNER" || { echo "::error::apksigner not found on GitHub runner"; exit 1; }
+          "$APKSIGNER" verify --print-certs "$APK" > "$RUNNER_TEMP/recordnote-apk-certificate.txt"
+          SHA256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/recordnote-apk-certificate.txt" | head -n1 | tr -d '\r')"
+          [[ "$SHA256" =~ ^[0-9a-fA-F]{64}$ ]] || { echo "::error::APK SHA256 signature missing"; exit 1; }
+          printf '%s\n' "$SHA256" > native/RecordNote-Android-test-SHA256.txt
+          {
+            echo '## RecordNote Android 測試 APK SHA-256'
+            echo
+            echo '本次產生的測試 APK 的真實 SHA-256 指紋：'
+            echo
+            echo "$SHA256"
+            echo
+            echo 'App ID: phd.starry.recordnote'
+            echo '下載：本次執行頁面下方 Artifacts → RecordNote-test-APK-with-SHA256'
+            echo '安裝同一次產生的 app-release.apk，才能對應這組指紋。'
+            echo '登記：https://id.starry.phd/admin/apps → RecordNote → 編輯登記資料'
+            echo '不同測試建置可能有不同指紋；Google Play 正式版須另取正式簽署憑證。'
+            echo '僅供內部驗收，不部署 Worker、不上傳商店、不自動登記。'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload matching test APK and certificate SHA256
+        uses: actions/upload-artifact@v4
+        with:
+          name: RecordNote-test-APK-with-SHA256
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            native/android/app/build/outputs/apk/release/app-release.apk
+            native/RecordNote-Android-test-SHA256.txt
