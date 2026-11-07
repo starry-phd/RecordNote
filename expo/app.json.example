@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "繁星答錄機 RecordNote",
+    "slug": "recordnote",
+    "scheme": "recordnote",
+    "version": "0.1.0",
+    "ios": {
+      "bundleIdentifier": "phd.starry.recordnote",
+      "associatedDomains": [
+        "webcredentials:id.starry.phd"
+      ]
+    },
+    "android": {
+      "package": "phd.starry.recordnote"
+    }
+  }
+}
