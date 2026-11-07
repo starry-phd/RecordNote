@@ -128,3 +128,22 @@ test('Browser never receives the service key and AI summary sends a fresh idempo
  assert.ok(html.includes('id="aiBatteryPricingForm"'));
  assert.ok(frontend.includes("state.aiBatteryPolicy?.can_manage"));
 });
+
+
+test('Central Battery app cap and maintenance always block new AI reservations',async()=>{
+ for(const [status,code] of [[409,'BATTERY_APP_CAP'],[503,'SERVICE_UNAVAILABLE']]){
+  const h=harness({response:async()=>({
+   ok:false,status,
+   json:async()=>({error:{code,message:'Central quota policy'}})
+  })});
+  h.ctx.env=h.env;
+  h.ctx.pricing=valid.tasks;
+  const result=await h.exec('reserveAiBattery(env,"Bearer member","summary",pricing,"cap-check-12345678")');
+  assert.equal(result.ok,false);
+  assert.equal(result.status,status);
+  assert.equal(result.code,code);
+  assert.equal(h.calls.length,1,'no AI task may run after failed reservation');
+ }
+ assert.ok(frontend.includes("SERVICE_UNAVAILABLE:'繁星電池艙目前維護中"));
+ assert.ok(frontend.includes("BATTERY_APP_CAP:'RecordNote 已達中央設定"));
+});
