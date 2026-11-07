@@ -15,6 +15,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run starry:types
       - run: test -s src/generated/starry-id.d.ts
+      - run: npm run build:recordnote
       - name: Install FFmpeg and FFprobe for real M4A audio tests
         run: |
           sudo apt-get update -qq
