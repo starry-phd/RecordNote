@@ -144,6 +144,6 @@ test('Central Battery app cap and maintenance always block new AI reservations',
   assert.equal(result.code,code);
   assert.equal(h.calls.length,1,'no AI task may run after failed reservation');
  }
- assert.ok(frontend.includes("SERVICE_UNAVAILABLE:'繁星電池艙目前維護中"));
+ assert.ok(frontend.includes("SERVICE_UNAVAILABLE:'🔋 繁星電池艙目前維護中"));
  assert.ok(frontend.includes("BATTERY_APP_CAP:'RecordNote 已達中央設定"));
 });
