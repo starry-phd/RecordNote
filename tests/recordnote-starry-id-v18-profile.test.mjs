@@ -48,7 +48,7 @@ test('Website null avatar shows central initials (not derived), public link has 
  assert.equal(runInNewContext("centralMemberLink('profile','TW0123456')",v),'https://id.starry.phd/TW0123456');
 });
 test('Website safely renders signed avatar and HTML-encodes profile and member number',()=>{
- const v=getViews({member_no:'TW0<script>',profile:{initials:'<&',display_name:'<img>',avatar_url:'https://id.starry.phd/signed/avatar?x=1&y=2'}});
+ const v=getViews({member_no:'TW0<script>',profile:{initials:'<&',shown_name:'<img>',display_name:'Private Name',avatar_url:'https://id.starry.phd/signed/avatar?x=1&y=2'}});
  const html=runInNewContext('centralMemberSection()',v);
  assert.ok(html.includes('&lt;img&gt;'));
  assert.ok(html.includes('&lt;&amp;'));
