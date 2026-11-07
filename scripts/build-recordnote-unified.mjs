@@ -32,9 +32,24 @@ let web=read('cloudflare-candidate/recordnote-web.mjs');
 const m=/const PAGE=("(?:\\.|[^"\\])*")/s.exec(web);
 if(!m)throw Error('Web PAGE constant missing');
 const page=JSON.parse(m[1]);
+
+const frontendSource=read('vendor/starry-id/starry-client.ts');
+const frontendCompiled=ts.transpileModule(frontendSource,{
+ compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext},
+ reportDiagnostics:true,fileName:'starry-client.ts'
+});
+if(frontendCompiled.diagnostics?.some(x=>x.category===ts.DiagnosticCategory.Error))
+ throw Error('Official Starry Client could not be transpiled');
+const frontendJS=frontendCompiled.outputText
+ .replace(/^export (class|function|const) /gm,'$1 ')
+ .replace(/^export\s*\{\s*\};?\s*$/gm,'').trim();
+if(!frontendJS.includes('class StarryClient'))throw Error('Official Starry Client missing');
+if(!page.includes('/* __RECORDNOTE_STARRY_CLIENT__ */'))throw Error('Starry Client injection point missing');
+const runtimePage=page.replace('/* __RECORDNOTE_STARRY_CLIENT__ */',frontendJS);
+
 const old="apiBase: 'https://recordnote-api.starry.phd'";
 if(!page.includes(old))throw Error('Web needs explicit API source before same-origin binding');
-web=web.slice(0,m.index)+'const PAGE='+JSON.stringify(page.replace(old,'apiBase: window.location.origin'))+web.slice(m.index+m[0].length);
+web=web.slice(0,m.index)+'const PAGE='+JSON.stringify(runtimePage.replace(old,'apiBase: window.location.origin'))+web.slice(m.index+m[0].length);
 web=web.replace(/export default\s+\{/,'return {');
 
 const a=current.indexOf('const recordnoteApi = (() => {\n');

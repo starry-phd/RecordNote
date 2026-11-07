@@ -1,5 +1,7 @@
 # RecordNote｜AI 開發交接（2026-11-07 20:07 台灣時間）
 
+> **新版補充 2026-11-07.9（PR #13 增量）**：Starry ID 已依 ADR 0011 把 RecordNote 轉入 `registered_apps`，`config/apps.json` 現只留 `account`。Apple Team ID 由中央統一設定（不在 App 或 Admin Lite 每款 App 填寫）；Android 正式/測試 SHA-256 在 Admin Lite 的「編輯登記資料」補登。原第 3/4 節記錄的是 v7 當時狀態，請以 `docs/RECORDNOTE_STARRY_ID_V2026-11-07.9_DELTA.md` 為現行依據；PR 仍未合併、未部署。
+
 > **交接依據：RecordNote「串接指令 2026-11-07.7」（17:30 台灣時間）。開始接手前，請先檢查 Starry ID Admin Lite 是否已有 RecordNote 更高版本串接指令；有新版則以新版為準，先列出差異再修改。**
 >
 > 本檔是進度快照；如 GitHub、Cloudflare 實際狀態已有變更，先以實際查詢為準。禁止把尚未合併或尚未部署的程式描述為已上線。
