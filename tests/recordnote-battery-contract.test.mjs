@@ -102,8 +102,8 @@ test('Only verified Starry ID staff_role owner can edit AI prices',()=>{
 });
 test('Every AI model path has Battery reserve, commit and release; never runs unbilled',()=>{
  for(const [current,next,task] of [
-  ['async function aiSummary(','async function aiQuestion(','summary'),
-  ['async function aiQuestion(','async function aiTranscribe(','question'),
+  ['async function aiSummary(','async function aiQuestion(','summary'] ,
+  ['async function aiQuestion(','async function aiTranscribe(','question'] ,
   ['async function aiTranscribe(','async function principal(','transcribe')
  ]){
   const i=worker.indexOf(current),j=worker.indexOf(next,i);
