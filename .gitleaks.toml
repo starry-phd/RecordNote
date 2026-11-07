@@ -15,5 +15,10 @@ keywords = ["sbk_"]
 description = "Fixed non-secret RecordNote fixtures"
 regexes = [
   '''^rn_ai_battery_prices_v1$''',
-  '''^test-123456789$'''
+  '''^test-123456789
+]
+'',
+  # Historical Cloudflare Worker deployment version UUID; publicly documented,
+  # not a credential. This single exact value was flagged as generic-api-key.
+  '''9f28746c-cc1b-4375-a41a-bb7690f9f999'''
 ]
