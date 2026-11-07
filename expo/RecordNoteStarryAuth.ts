@@ -31,15 +31,12 @@ function requireCentralRp(options:Record<string,unknown>,creation=false):Record<
 function nativePasskeyFailure(error:unknown):never{
  const source=error as {error?:string;code?:string;name?:string;message?:string};
  const code=String(source?.error||source?.code||source?.name||'');
- const names:Record<string,string>={
-  UserCancelled:'UserCancelled',NoCredentials:'NotFoundError',
-  CredentialAlreadyExists:'InvalidStateError',
-  NotSupported:'NotSupportedError',BadConfiguration:'SecurityError'
- };
- if(!names[code])throw error;
- const normalized=new Error(source?.message||code);
- normalized.name=names[code];
- throw normalized;
+ if(code==='UserCancelled')throw new StarryError(0,'PASSKEY_CANCELLED','Passkey cancelled');
+ if(code==='NoCredentials')throw new StarryError(0,'PASSKEY_NOT_FOUND','No Passkey available');
+ if(code==='CredentialAlreadyExists')throw new StarryError(0,'PASSKEY_EXISTS','Passkey already registered');
+ if(code==='BadConfiguration')throw new StarryError(0,'PASSKEY_CONFIGURATION_REQUIRED','Domain verification incomplete');
+ if(code==='NotSupported')throw new StarryError(0,'PASSKEY_UNSUPPORTED','Passkey is unavailable');
+ throw error;
 }
 const passkey={
  async get(options:Record<string,unknown>){
@@ -75,10 +72,10 @@ export function centralPasskeyError(error:unknown):string|null{
  const e=error as {code?:string;name?:string;message?:string;cancelled?:boolean};
  const code=String(e?.code||e?.name||e?.message||'');
  if(e?.cancelled||['NotAllowedError','AbortError','PASSKEY_CANCELLED','RELAY_CANCELLED'].includes(code))return null;
- if(['NoCredentials','NotFoundError'].includes(code))return '找不到 Passkey，請改用 Apple 或 Google 登入。';
- if(['CredentialAlreadyExists','InvalidStateError'].includes(code))return '這部裝置已經有這把 Passkey。';
+ if(['NoCredentials','NotFoundError','PASSKEY_NOT_FOUND'].includes(code))return '找不到 Passkey，請改用 Apple 或 Google 登入。';
+ if(['CredentialAlreadyExists','InvalidStateError','PASSKEY_EXISTS'].includes(code))return '這部裝置已經有這把 Passkey。';
  if(code==='REAUTH_REQUIRED')return '請重新登入（10 分鐘內）後再新增 Passkey。';
- if(code==='BadConfiguration'||code==='INVALID_PASSKEY_RP_ID')return '此 App 的裝置網域尚未完成驗證，請聯絡管理員。';
+ if(['BadConfiguration','INVALID_PASSKEY_RP_ID','PASSKEY_CONFIGURATION_REQUIRED'].includes(code))return '此 App 的裝置網域尚未完成驗證，請聯絡管理員。';
  return 'Passkey 未完成，請稍後再試或改用 Apple／Google 登入。';
 }
 export async function restoreSignIn(){return starryClient.restore();}
