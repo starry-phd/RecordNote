@@ -77,7 +77,9 @@ jobs:
           raw = report.read_text(encoding='utf-8')
           found = None
           for line in raw.splitlines():
-              match = re.search(r'Signer\s+#1\s+certificate\s+SHA-256\s+digest\s*:\s*(.*)', line, re.I)
+              # New apksigner: "V2 Signer: certificate SHA-256 digest: ...".
+              # Also accepts older "Signer #1 certificate SHA-256 digest: ...".
+              match = re.search(r'\bcertificate\s+SHA-256\s+digest\s*:\s*([0-9a-fA-F:\s]+)', line, re.I)
               if not match:
                   continue
               candidate = re.sub(r'[:\s]', '', match.group(1)).lower()
@@ -88,8 +90,6 @@ jobs:
               print('::error::Verified APK contains no readable signer SHA-256; see apksigner public certificate output above.')
               sys.exit(1)
           pathlib.Path('native/RecordNote-Android-test-SHA256.txt').write_text(found + '\n', encoding='ascii')
-          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as out:
-              out.write('APK_SIGNER_SHA256=' + found + '\n')
           print('RecordNote signed APK certificate SHA-256: ' + found)
           PY
           {
@@ -97,7 +97,7 @@ jobs:
             echo
             echo '本次產生的測試 APK 的真實 SHA-256 指紋：'
             echo
-            echo "$APK_SIGNER_SHA256"
+            cat native/RecordNote-Android-test-SHA256.txt
             echo
             echo 'App ID: phd.starry.recordnote'
             echo '下載：本次執行頁面下方 Artifacts → RecordNote-test-APK-with-SHA256'
