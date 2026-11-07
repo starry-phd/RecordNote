@@ -1,0 +1,31 @@
+name: RecordNote Starry ID public contract
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-candidate/recordnote-worker.js'
+      - 'cloudflare-candidate/recordnote-web.mjs'
+      - 'cloudflare-candidate/recordnote-unified.mjs'
+      - 'vendor/starry-id/**'
+      - 'expo/RecordNoteStarryAuth.ts'
+      - '.github/workflows/recordnote-starry-id-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  central-registration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify recordnote is active on live Starry ID using public GET
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --retry 2 --retry-all-errors --fail-with-body --silent --show-error \
+            --max-time 20 'https://id.starry.phd/v1/apps/recordnote/config' -o /tmp/recordnote-config.json
+          node -e "const c=require('/tmp/recordnote-config.json');if(c.app_id!=='recordnote'||c.status!=='active'||!Array.isArray(c.notices))process.exit(1);console.log('Starry ID config verified: '+c.app_id+' '+c.status+' min_version='+c.min_version)"
+          curl --retry 2 --retry-all-errors --fail-with-body --silent --show-error \
+            --max-time 20 'https://id.starry.phd/.well-known/jwks.json' -o /tmp/starry-jwks.json
+          node -e "const jwks=require('/tmp/starry-jwks.json');if(!Array.isArray(jwks.keys)||jwks.keys.length<1)process.exit(1);console.log('JWKS returned valid public key set')"
