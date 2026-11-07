@@ -13,6 +13,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - run: npm install --no-audit --no-fund
+      - name: Install FFmpeg and FFprobe for real M4A audio tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
       - run: npm test
       - run: python3 tests/schema_test.py
       - run: python3 tests/quota_sqlite_test.py
