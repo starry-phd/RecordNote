@@ -196,3 +196,54 @@ test('never remove or retry ordinary saved local-library recordings as if they w
  assert.ok(safe.includes("entry?.storage==='local-library'"));
  assert.ok(retry.includes("x.storage!=='local-library'"));
 });
+
+test('mobile capture disables AEC and noise suppression and bypasses RecordNote voice DSP',async()=>{
+ const section=slice('function isMobileRecordingClient(){','\nfunction stopRecord()');
+ async function captureWith(device){
+  const stream={getTracks:()=>[{stop:()=>{}}]};
+  const enhancedStream={getTracks:()=>[{stop:()=>{}}]};
+  let constraints=null,encoder=null,dspCalls=0;
+  class FakeMediaRecorder {
+   static isTypeSupported(type){return type.startsWith('audio/mp4');}
+   constructor(source,options){encoder={source,options};this.state='recording';}
+   start(){}
+  }
+  const state={active:'book-1',rec:null,recordSeconds:0};
+  const ctx={
+   navigator:{userAgent:device.ua,platform:device.platform||'',
+     maxTouchPoints:device.touches||0,
+     userAgentData:device.uaMobile===undefined?undefined:{mobile:device.uaMobile},
+     mediaDevices:{getUserMedia:async options=>{constraints=options.audio;return stream;}}},
+   window:{MediaRecorder:FakeMediaRecorder,
+     RecordNoteVoice:{attach:()=>{dspCalls++;return {stream:enhancedStream,ready:Promise.resolve(),close(){}};}},
+     RecordNoteAudioMeter:{attach:()=>({stop(){}})}},
+   MediaRecorder:FakeMediaRecorder,
+   mdPolicyAtStart:()=>Promise.resolve({}),
+   captureRecordingGPS:()=>Promise.resolve(null),
+   setInterval:()=>1,render:()=>{},notice:()=>{},
+   state,Promise,Date,Number,Object,String,Error,console
+  };
+  await runInNewContext(section+'\nstartRecord(false)',ctx);
+  return {encoder,constraints,dspCalls,stream,enhancedStream};
+ }
+ for(const device of [
+  {ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'},
+  {ua:'Mozilla/5.0 (Linux; Android 15; Pixel 8)'},
+  {ua:'Mozilla/5.0 (Macintosh; Intel Mac OS X)',platform:'MacIntel',touches:5}
+ ]){
+  const r=await captureWith(device);
+  assert.equal(r.constraints.sampleRate.ideal,22050);
+  assert.equal(r.constraints.channelCount.ideal,1);
+  assert.equal(r.constraints.echoCancellation,false);
+  assert.equal(r.constraints.noiseSuppression,false);
+  assert.equal(r.encoder.options.audioBitsPerSecond,48000);
+  assert.equal(r.encoder.source,r.stream);
+  assert.equal(r.dspCalls,0);
+ }
+ const desktop=await captureWith({ua:'Mozilla/5.0 (X11; Linux x86_64) Chrome/133',uaMobile:false});
+ assert.equal(desktop.constraints.echoCancellation,true);
+ assert.equal(desktop.constraints.noiseSuppression,true);
+ assert.equal(desktop.encoder.options.audioBitsPerSecond,64000);
+ assert.equal(desktop.encoder.source,desktop.enhancedStream);
+ assert.equal(desktop.dspCalls,1);
+});
