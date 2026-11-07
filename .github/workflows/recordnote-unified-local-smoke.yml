@@ -1,0 +1,30 @@
+name: RecordNote single Worker local smoke
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-candidate/recordnote-unified.mjs'
+      - 'tests/recordnote-unified-worker.test.mjs'
+      - '.github/workflows/recordnote-unified-local-smoke.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare-candidate/recordnote-unified.mjs'
+      - 'tests/recordnote-unified-worker.test.mjs'
+      - '.github/workflows/recordnote-unified-local-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unified-local-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Web, API, assets and auth route locally
+        run: node --test tests/recordnote-unified-worker.test.mjs
