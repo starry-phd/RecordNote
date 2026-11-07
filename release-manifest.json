@@ -1,0 +1,16 @@
+{
+  "project": "starry-recorder",
+  "releaseStage": "development",
+  "productionReady": false,
+  "evidence": {
+    "centralIdentity": false,
+    "secureAudioTranscoding": false,
+    "recordingRecovery": false,
+    "cloudAIAndOCR": false,
+    "subscriptionsAndRefunds": false,
+    "nativeAndroidIOS": false,
+    "privacyGlobalCompliance": false,
+    "loadAndSecurityReview": false,
+    "productionSmokeValidationPlan": false
+  }
+}

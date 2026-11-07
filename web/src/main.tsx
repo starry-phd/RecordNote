@@ -1,0 +1,25 @@
+import React,{useState} from 'react';
+import {createRoot} from 'react-dom/client';
+import {Mic,Library,Search,UserRound,FileAudio,ShieldCheck,CloudUpload,Sparkles,LockKeyhole,Image as ImageIcon,Video,CircleHelp,Globe2} from 'lucide-react';
+import './styles.css';
+type Lang='zh'|'en';type Tab='library'|'record'|'ai'|'membership';
+const messages={
+zh:{app:'繁星 AI 錄音',sub:'私人錄音與課程知識庫',demo:'開發預覽 · 尚未開放上傳或扣款',library:'我的課程',record:'錄音',ai:'AI 搜尋',membership:'會員',create:'新增課程',noCourses:'私人課程會出現在這裡',recordDesc:'手機鎖屏背景錄音將由 Android／iOS 原生版提供',recMax:'每筆最多 100 分鐘，單一課程最多 10 筆',format:'儲存格式 M4A · 16kHz · 64kbps',uploadNote:'每檔最多 100MB。正式開放前需完成格式驗證和安全上傳。',aiDesc:'逐字稿與照片 OCR 的答案會顯示來源。沒有證據不會亂答。',private:'只有自己可讀取。分享時需指定 Starry ID 會員。',free:'免費體驗',standard:'標準會員',pro:'專業會員',monthly:'月繳',yearly:'年繳',notReady:'登入、AI 處理、付款與背景錄音仍在開發驗收中',srcTitle:'已確認規格',srcBody:'每筆最多 50 張照片、一段 10 秒影片；短影片不納入 AI 搜尋。'},
+en:{app:'Starry AI Recorder',sub:'Your private lecture knowledge library',demo:'Development preview · No live uploads or payments',library:'My courses',record:'Record',ai:'AI Search',membership:'Membership',create:'New course',noCourses:'Your private courses will appear here',recordDesc:'Locked-screen recording requires the native Android/iOS apps',recMax:'100 minutes per recording, 10 recordings per course',format:'M4A · 16kHz · 64kbps storage format',uploadNote:'100MB maximum. Codec verification and secure uploads are not live yet.',aiDesc:'AI responses will cite transcripts and slide OCR. No evidence means no invented answers.',private:'Private by default. Sharing requires a signed-in Starry ID recipient.',free:'Free trial',standard:'Standard',pro:'Professional',monthly:'Monthly',yearly:'Yearly',notReady:'Authentication, AI, billing, and native recording are pending validation',srcTitle:'Confirmed limits',srcBody:'Up to 50 images and a 10-second video per recording. Video excluded from AI search.'}
+};
+function App(){
+ const [lang,setLang]=useState<Lang>('zh'),[tab,setTab]=useState<Tab>('library'),[period,setPeriod]=useState<'month'|'year'>('month');
+ const t=messages[lang];
+ const plans=[{label:t.standard,month:199,year:1990,minutes:600,gb:20},{label:t.pro,month:399,year:3990,minutes:1800,gb:100}];
+ return <main className="shell">
+   <header className="header"><div className="identity"><div className="mark"><Mic size={22}/></div><div><h1>{t.app}</h1><p>{t.sub}</p></div></div><button className="language" onClick={()=>setLang(lang==='zh'?'en':'zh')} aria-label="Switch language"><Globe2 size={17}/>{lang==='zh'?'EN':'繁中'}</button></header>
+   <div className="notice"><ShieldCheck size={17}/><span>{t.demo}</span></div>
+   <nav className="tabs" aria-label="Main navigation">{([{id:'library',name:t.library,icon:Library},{id:'record',name:t.record,icon:Mic},{id:'ai',name:t.ai,icon:Search},{id:'membership',name:t.membership,icon:UserRound}] as const).map(item=><button key={item.id} className={tab===item.id?'active':''} onClick={()=>setTab(item.id)}><item.icon size={19}/>{item.name}</button>)}</nav>
+   {tab==='library'&&<section className="panel"><div className="section-heading"><h2>{t.library}</h2><span className="pill">Private</span></div><div className="empty"><Library size={36}/><h3>{t.noCourses}</h3><p>{t.private}</p><button disabled>{t.create}</button></div><div className="detail"><LockKeyhole size={18}/>{t.notReady}</div></section>}
+   {tab==='record'&&<section className="panel"><h2>{t.record}</h2><div className="recorder"><div className="pulse"><Mic size={34}/></div><div className="timer">00:00:00</div><p>{t.recMax}</p><button disabled><Mic size={18}/>{t.record}</button></div><div className="info-grid"><div><FileAudio size={20}/>{t.format}</div><div><CloudUpload size={20}/>{t.uploadNote}</div><div><ImageIcon size={20}/>50 / {lang==='zh'?'張照片':'images'}</div><div><Video size={20}/>10s / {lang==='zh'?'影片':'video'}</div></div><p className="caution">{t.recordDesc}</p></section>}
+   {tab==='ai'&&<section className="panel"><h2>{t.ai}</h2><div className="empty"><Sparkles size={36}/><h3>{t.srcTitle}</h3><p>{t.aiDesc}</p><button disabled>{t.ai}</button></div><div className="detail"><ShieldCheck size={18}/>{t.srcBody}</div></section>}
+   {tab==='membership'&&<section className="panel"><h2>{t.membership}</h2><div className="segmented"><button className={period==='month'?'selected':''} onClick={()=>setPeriod('month')}>{t.monthly}</button><button className={period==='year'?'selected':''} onClick={()=>setPeriod('year')}>{t.yearly}</button></div><div className="plans"><div className="plan"><h3>{t.free}</h3><strong>NT$0</strong><p>30 {lang==='zh'?'分鐘一次性轉錄':'one-time minutes'}</p><small>1GB · 10 AI · 10 OCR</small></div>{plans.map(p=><div className="plan" key={p.label}><h3>{p.label}</h3><strong>NT${period==='month'?p.month:p.year}</strong><p>{p.minutes} {lang==='zh'?'分鐘／月':'min/month'}</p><small>{p.gb} GB</small></div>)}</div><div className="detail"><CircleHelp size={18}/>{t.notReady}</div></section>}
+   <footer>Starry.phd · {t.demo}</footer>
+ </main>;
+}
+createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

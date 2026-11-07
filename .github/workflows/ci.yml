@@ -1,0 +1,37 @@
+name: Validation
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: python3 tests/schema_test.py
+      - run: python3 tests/quota_sqlite_test.py
+      - run: python3 tests/retention_schema_test.py
+      - run: python3 tests/course_ops_sqlite_test.py
+      - run: python3 tests/ai_budget_sqlite_test.py
+      - run: python3 tests/ai_job_sqlite_test.py
+      - run: python3 tests/transcript_sqlite_test.py
+      - run: npx tsc --project tsconfig.web.json
+      - run: npm run build
+      - run: node -e "const r=require; console.log(r('@ffmpeg-installer/ffmpeg').version, r('@ffprobe-installer/ffprobe').version)"
+      - run: node --test integration-tests/media-probe.test.mjs
+      - run: npx esbuild src/worker.ts --bundle --platform=browser --format=esm --outfile=.build/worker-boundary.mjs
+      - run: node --test integration-tests/worker-boundary.test.mjs
+      - run: node --test integration-tests/authenticated-course.test.mjs
+      - run: npx tsc --project tsconfig.worker.json
+      - run: node --test tests/release-gate.test.mjs
+      - run: npx wrangler deploy --dry-run --config wrangler.preview.jsonc
+
+      - run: node --test preview/status-worker.test.mjs
+      - run: node --test ai-lab/worker.test.mjs
+      - run: node --test ai-lab/queue-worker.test.mjs

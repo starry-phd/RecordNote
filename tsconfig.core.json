@@ -1,0 +1,4 @@
+{
+  "compilerOptions":{"target":"ES2022","module":"NodeNext","moduleResolution":"NodeNext","strict":true,"outDir":".build","rootDir":"src","lib":["ES2022","DOM"],"skipLibCheck":true},
+  "include":["src/core.ts","src/auth.ts","src/capabilities.ts","src/audio-verify.ts","src/recorder-session.ts","src/grounded-answer.ts","src/quota-ledger.ts","src/retention-preview.ts","src/course-protection.ts","src/course-service.ts","src/audio-promotion.ts","src/audio-playback.ts","src/ai-cloudflare.ts","src/ai-budget.ts","src/transcript-store.ts","src/asr-segmentation.ts","src/authorized-evidence.ts"]
+}

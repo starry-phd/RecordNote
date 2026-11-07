@@ -1,0 +1,18 @@
+{
+  "$schema":"./node_modules/wrangler/config-schema.json",
+  "name":"starry-recorder",
+  "main":"src/worker.ts",
+  "compatibility_date":"2026-10-22",
+  "compatibility_flags":["nodejs_compat"],
+  "workers_dev":true,
+  "assets":{"directory":"./dist","binding":"ASSETS","run_worker_first":["/api/*"]},
+  "ai": {"binding":"AI"},
+  "observability":{"enabled":true},
+  "vars":{
+    "STAR_ID_ISSUER":"REPLACE_WITH_VERIFIED_ID_ISSUER",
+    "STAR_ID_AUDIENCE":"starry-recorder",
+    "STAR_ID_JWKS_URL":"REPLACE_WITH_VERIFIED_HTTPS_JWKS_URL"
+  },
+  "d1_databases":[{"binding":"DB","database_name":"starry-recorder-db","database_id":"REPLACE_AFTER_CREATING_DB"}],
+  "r2_buckets":[{"binding":"MEDIA","bucket_name":"starry-recorder-private"}]
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "starry-recorder-preview",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "ai": {"binding":"AI"},
+  "observability": {"enabled": true},
+  "vars": {
+    "STAR_ID_ISSUER": "NOT_CONFIGURED",
+    "STAR_ID_AUDIENCE": "starry-recorder",
+    "STAR_ID_JWKS_URL": "NOT_CONFIGURED",
+    "FEATURE_MEMBER_API": "disabled",
+    "FEATURE_AUDIO_UPLOAD": "disabled",
+    "FEATURE_SHARING": "disabled"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "starry-recorder-preview-db",
+      "database_id": "b13dc8f0-eb02-42fa-9685-c99d36d23ea7"
+    }
+  ],
+  "r2_buckets": [{"binding": "MEDIA", "bucket_name": "starry-recorder-preview-media"}]
+}
