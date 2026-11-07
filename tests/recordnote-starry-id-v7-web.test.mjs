@@ -7,7 +7,7 @@ const input=readFileSync(new URL('../cloudflare-candidate/recordnote-web.mjs',im
 const result=/const PAGE=("(?:\\.|[^"\\])*")/s.exec(input);
 assert.ok(result,'RecordNote Web page must be embedded');
 const html=JSON.parse(result[1]);
-const script=html.split('<script type="module">').at(-1)?.split('</script>')[0];
+const script=html.split('<script type="module">')[1]?.split('</script>')[0];
 assert.ok(script,'Main app script must exist');
 
 test('full browser module syntax parses after Passkey and notice updates',()=>{
