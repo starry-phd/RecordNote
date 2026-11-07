@@ -8,3 +8,12 @@ id = "starry-battery-service-key"
 description = "Starry Battery App backend service key must never enter Git"
 regex = '''(?i)\bsbk_[A-Za-z0-9_-]{16,}\b'''
 keywords = ["sbk_"]
+
+# Known harmless fixed configuration identifier and test-only idempotency fixture.
+# Exact matches only; production secrets and sbk_ keys remain blocked.
+[allowlist]
+description = "Fixed non-secret RecordNote fixtures"
+regexes = [
+  '''^rn_ai_battery_prices_v1$''',
+  '''^test-123456789$'''
+]
