@@ -26,17 +26,36 @@ function requireCentralRp(options:Record<string,unknown>,creation=false):Record<
  if(value!=='id.starry.phd')throw new Error('INVALID_PASSKEY_RP_ID');
  return options;
 }
+// react-native-passkey exposes normalized codes under error.error, whereas
+// the shared SDK reads DOM-style error.name. Normalize at the platform boundary.
+function nativePasskeyFailure(error:unknown):never{
+ const source=error as {error?:string;code?:string;name?:string;message?:string};
+ const code=String(source?.error||source?.code||source?.name||'');
+ const names:Record<string,string>={
+  UserCancelled:'UserCancelled',NoCredentials:'NotFoundError',
+  CredentialAlreadyExists:'InvalidStateError',
+  NotSupported:'NotSupportedError',BadConfiguration:'SecurityError'
+ };
+ if(!names[code])throw error;
+ const normalized=new Error(source?.message||code);
+ normalized.name=names[code];
+ throw normalized;
+}
 const passkey={
  async get(options:Record<string,unknown>){
   if(!Passkey.isSupported())throw new Error('PASSKEY_NOT_SUPPORTED');
-  const result=await Passkey.get(requireCentralRp(options));
+  let result;
+  try{result=await Passkey.get(requireCentralRp(options));}
+  catch(error){nativePasskeyFailure(error);}
   if(!result?.response)throw new Error('PASSKEY_CANCELLED');
   return {id:result.id,clientDataJSON:result.response.clientDataJSON,
    authenticatorData:result.response.authenticatorData,signature:result.response.signature};
  },
  async create(options:Record<string,unknown>){
   if(!Passkey.isSupported())throw new Error('PASSKEY_NOT_SUPPORTED');
-  const result=await Passkey.create(requireCentralRp(options,true));
+  let result;
+  try{result=await Passkey.create(requireCentralRp(options,true));}
+  catch(error){nativePasskeyFailure(error);}
   if(!result?.response)throw new Error('PASSKEY_CANCELLED');
   return {clientDataJSON:result.response.clientDataJSON,
    attestationObject:result.response.attestationObject};
@@ -45,6 +64,7 @@ const passkey={
 export const starryClient=new StarryClient({
  baseUrl:ID,appId:APP_ID,storage,passkey,
  sha256Hex:(text)=>Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,text),
+ randomState:()=>Crypto.randomUUID(),
  openAuthSession:async(url,returnUrl)=>{
   const result=await WebBrowser.openAuthSessionAsync(url,returnUrl);
   return result.type==='success'?result.url:null;
