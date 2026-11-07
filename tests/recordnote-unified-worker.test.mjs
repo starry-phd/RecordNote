@@ -57,7 +57,7 @@ test('API health and OPTIONS remain handled by backend and keep the original D1/
 test('unknown URLs do not return the website shell as a fallback API response',async()=>{
  const resp=await worker.fetch(new Request('https://recordnote.starry.phd/v1/nonexistent'),{});
  assert.equal(resp.status,401); // Existing backend authenticates every /v1/* request first.
- assert.match(resp.headers.get('content-type')||'','/json|json/');
+ assert.match(resp.headers.get('content-type')||'',/json/);
  const body=await resp.json();
  assert.ok(body.error);
 });
