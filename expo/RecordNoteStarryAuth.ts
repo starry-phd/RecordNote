@@ -1,5 +1,5 @@
 /**
- * RecordNote Expo adapter for the official Starry Client (v2026-11-07.9).
+ * RecordNote Expo adapter for the official Starry Client (v2026-11-07.12).
  * This is an integration module, NOT a runnable iOS/Android Expo app.
  * Install Expo development build + react-native-passkey in the future App.
  */
@@ -74,7 +74,7 @@ export function centralPasskeyError(error:unknown):string|null{
  if(e?.cancelled||['NotAllowedError','AbortError','PASSKEY_CANCELLED','RELAY_CANCELLED'].includes(code))return null;
  if(['NoCredentials','NotFoundError','PASSKEY_NOT_FOUND'].includes(code))return '找不到 Passkey，請改用 Apple 或 Google 登入。';
  if(['CredentialAlreadyExists','InvalidStateError','PASSKEY_EXISTS'].includes(code))return '這部裝置已經有這把 Passkey。';
- if(code==='REAUTH_REQUIRED')return '請重新登入（10 分鐘內）後再新增 Passkey。';
+ if(code==='REAUTH_REQUIRED')return '登入狀態已失效，請重新登入後再試。';
  if(['BadConfiguration','INVALID_PASSKEY_RP_ID','PASSKEY_CONFIGURATION_REQUIRED'].includes(code))return '此 App 的裝置網域尚未完成驗證，請聯絡管理員。';
  return 'Passkey 未完成，請稍後再試或改用 Apple／Google 登入。';
 }

@@ -51,7 +51,9 @@ export default function App(){
    if(!mounted.current)return;
    setGate(current);
    if(current.state!=='ok')return;
-   if(await restoreSignIn()){
+   const signedIn=await restoreSignIn();
+   if(!signedIn){setUser(null);setConsent(false);setPasskeys([]);return;}
+   if(signedIn){
     try{await readUser();}
     catch{if(mounted.current)setMessage('已保留登入資料，稍後重新讀取會員資訊。');}
    }
@@ -126,7 +128,7 @@ export default function App(){
    {!gated&&user?<View style={styles.card}>
     <Text style={styles.heading}>我的中央會員</Text>
     <Text style={styles.muted}>會員 ID：{user.user_id}</Text>
-    <Button text="登出" disabled={busy} onPress={logout}/>
+    <Button text="登出所有繁星 App" disabled={busy} onPress={logout}/>
     {consent?<View style={styles.card}>
       <Text style={styles.heading}>請同意最新版會員條款及隱私權政策</Text>
       <Button text="閱讀服務條款" disabled={busy} onPress={()=>open(ID+'/terms')}/>
@@ -140,7 +142,7 @@ export default function App(){
         <Text style={styles.keyName}>{k.name||'Passkey'}</Text>
         <Button text="移除" disabled={busy} danger onPress={()=>removeKey(k)}/>
       </View>)}
-      <Text style={styles.muted}>最多 10 把；新增前需於 10 分鐘內登入。</Text>
+      <Text style={styles.muted}>每位會員最多 10 把 Passkey，登入後隨時可以新增。</Text>
       <Text style={styles.heading}>永久刪除中央會員帳號</Text>
       <Text style={styles.muted}>立即永久刪除，沒有撤回期，不會自動取消 App Store／Google Play 訂閱。</Text>
       <TextInput value={confirmText} onChangeText={setConfirmText} placeholder="輸入 DELETE"
