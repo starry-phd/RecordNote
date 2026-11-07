@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {runInNewContext} from 'node:vm';
+import {createContext,runInContext} from 'node:vm';
 
 const worker=readFileSync(new URL('../cloudflare-candidate/recordnote-web.mjs',import.meta.url),'utf8');
 const literal=/const PAGE=("(?:\\.|[^"\\])*")/s.exec(worker);
@@ -25,13 +25,13 @@ function storage(map){
 }
 function harness({shared=new Map(),temporary=new Map(),reply=async()=>({ok:true,json:async()=>({access_token:'access-1',refresh_token:'refresh-2'})}),locks=undefined}={}){
  const state={token:null};
- const ctx={
+ const ctx=createContext({
   localStorage:storage(shared),sessionStorage:storage(temporary),
   navigator:{locks},state,ID:'https://id.starry.phd',
   fetch:reply,console:{warn:()=>{}},JSON,Promise,
- };
- runInNewContext(authCode,ctx);
- return {ctx,state,shared,temporary,run:expr=>runInNewContext(expr,ctx)};
+ });
+ runInContext(authCode,ctx);
+ return {ctx,state,shared,temporary,run:expr=>runInContext(expr,ctx)};
 }
 const key='recordnote.web.refresh';
 
@@ -98,7 +98,7 @@ test('manual logout removes persistent token and clears authenticated UI',async(
  h.ctx.restoreGuestBooks=()=>{};
  h.ctx.loadLocalMedia=async()=>{};
  h.ctx.render=()=>{rendered++;};
- runInNewContext(segment('async function resetSignedOutUI(){','async function loadCourses()'),h.ctx);
+ runInContext(segment('async function resetSignedOutUI(){','async function loadCourses()'),h.ctx);
  await h.run('logout()');
  assert.equal(serverLogouts,1);
  assert.equal(saved.has(key),false);
@@ -116,7 +116,7 @@ test('cross-tab storage logout notifies other tabs and clears their UI',async()=
  h.ctx.restoreGuestBooks=()=>{};
  h.ctx.loadLocalMedia=async()=>{};
  h.ctx.render=()=>{};
- runInNewContext(segment('async function resetSignedOutUI(){','async function loadCourses()'),h.ctx);
+ runInContext(segment('async function resetSignedOutUI(){','async function loadCourses()'),h.ctx);
  h.ctx.window.listeners.storage({key,newValue:null});
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(h.state.token,null);
