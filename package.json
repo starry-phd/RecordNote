@@ -11,7 +11,8 @@
     "build": "vite build",
     "cf:types": "wrangler types",
     "cf:deploy": "node scripts/release-gate.mjs && wrangler deploy --config wrangler.jsonc",
-    "starry:types": "openapi-typescript vendor/starry-id/starry-id.v1.json --output src/generated/starry-id.d.ts"
+    "starry:types": "openapi-typescript vendor/starry-id/starry-id.v1.json --output src/generated/starry-id.d.ts",
+    "build:recordnote": "node scripts/build-recordnote-unified.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
