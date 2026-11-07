@@ -7,7 +7,9 @@ useDefault = true
 [[rules]]
 id = "starry-battery-service-key"
 description = "Starry Battery App backend service key must never enter Git"
-regex = '''(?i)\bsbk_[A-Za-z0-9_-]{16,}\b'''
+# Exact Starry ID rule (starry-phd/id/.gitleaks.toml), retained alongside
+# RecordNote's known non-secret false-positive allowlist.
+regex = '''sbk_[A-Za-z0-9_-]{43}'''
 keywords = ["sbk_"]
 
 [allowlist]
