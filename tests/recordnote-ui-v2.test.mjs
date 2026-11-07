@@ -65,7 +65,7 @@ test('record card has two compact rows; Play and Trim are visible, all others in
 test('settings account and location first; advanced options hidden, including deletion',()=>{
  const base={state:{mode:'live',uploadPolicy:{can_manage:true,max_file_mb:200},storageFolderName:'下載',pending:[]},
   readNameRule:()=>({prefix:'RecordNote',date:true,time:true,counter:true}),
-  banner:()=>'',aiBatterySettings:()=>'',e,ID:'https://id.starry.phd',gpsOptIn:()=>true,mdGeoOptIn:()=>true,
+  banner:()=>'',aiBatterySettings:()=>'',memberBatterySection:()=>'',e,ID:'https://id.starry.phd',gpsOptIn:()=>true,mdGeoOptIn:()=>true,
   mdManualPoint:()=>null,mdGoogleMapsUrl:()=> 'https://www.google.com/maps',mdManualRecordEnabled:()=>false};
  for(const desktop of [true,false]){
   const html=execute('settings','function settings(){','function dialog(){',{...base,mdDesktopLocation:()=>desktop});
