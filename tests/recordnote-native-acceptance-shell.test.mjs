@@ -61,7 +61,7 @@ test('Native Passkey error normalization: cancellation silent and no-credential 
  // This helper contains one TypeScript annotation; strip it for dependency-free
  // node:vm behavior tests. Strict TS compilation is covered by native CI.
  const js=adapter.slice(start,end)
-  .replace('error:unknown','error')
+  .replace('function nativePasskeyFailure(error:unknown):never','function nativePasskeyFailure(error)')
   .replace('const source=error as {error?:string;code?:string;name?:string;message?:string};','const source=error;');
  const ctx=createContext({Error,String,StarryError:class StarryError extends Error {constructor(status,code,message){super(message);this.status=status;this.code=code;}}});
  runInContext(js,ctx);
