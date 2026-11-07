@@ -19,7 +19,7 @@ test('Starry Web login uses central Passkey challenge and signed assertion, neve
  assert.match(script,/navigator\.credentials\.get/);
  assert.match(script,/\/v1\/auth\/passkey'/);
  assert.match(script,/consent_required/);
- assert.match(script,/rpId!=='id\.starry\.phd'/);
+ assert.match(script,/data\.rpId\)!=='id\.starry\.phd'/);
  assert.match(script,/\/v1\/me\/passkeys\/options/);
  assert.match(script,/navigator\.credentials\.create/);
  assert.match(script,/\/v1\/me\/passkeys/);
