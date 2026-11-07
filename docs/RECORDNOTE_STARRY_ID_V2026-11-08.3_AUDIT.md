@@ -27,6 +27,10 @@
 
 既有：Web 同瀏覽器 SSO、iPhone Keychain SSO；Android 跨 App 共用登入仍選做。公開會員資料、Invite 分享與 🔋／⚛️ 仍沿用。
 
+## 打包與回歸測試
+- v3 的最新版 Web/API 單一 Worker 部署檔由專用 GitHub Workflow `build:recordnote` 產生；必須與原始 `cloudflare-candidate/recordnote-web.mjs` 完全一致，並由 `node scripts/build-recordnote-unified.mjs --check` 驗證。
+- Chrome 真實瀏覽器驗收、原生 TypeScript 驗收、電池不扣錯保護、公開中央登記與 gitleaks 均保留，不允許跳過失敗檢查。任何自動打包提交後，需再重新執行全套 CI 才能合併。
+
 ## Repo／Worker／驗收
 - Repo：`starry-phd/RecordNote`；更新現有 PR #13（未合併）。
 - Worker：既有 `recordnote` 單一 Web/API。正式版仍為先前 v14，**本次不部署**；不建立 `recordnote-api`。
