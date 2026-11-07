@@ -22,7 +22,7 @@
 - Web：新增「聯絡客服」，URL 只帶 `app_id=recordnote`、App 版本及通用瀏覽器裝置名稱，不帶 token／個資。
 - Web：中央 `GET /v1/apps/recordnote/config` 啟動／前景檢查、暫停／停用／最低版本提示；公告依生效時間顯示且只使用純文字。
 - 版本化引入 Starry ID 官方 `sdk/starry-sdk.ts`、OpenAPI 3.1；CI 自動產生型別並編入單一 Worker 的建置產物；Gitleaks 防止 `sbk_` 服務金鑰提交。
-- 原生：`expo/RecordNoteStarryAuth.ts`、`expo/app.json.example` 是待整合的串接模組／範本。**尚無完整可建置的 iOS／Android Expo App，不能宣稱原生 Passkey 已完工或上架**。
+- 原生：已新增 `native/` 獨立 Expo SDK 58 原生**登入驗收基座**，接上 `expo/RecordNoteStarryAuth.ts` 及官方前端 SDK，可作 Android/iOS development build 型別檢查及實機驗收。**尚未移植完整錄音、雲端檔案、AI 功能，且未完成實機 Passkey、商店上架**。詳細見 `native/README.md`。
 - 逐項檢查詳見 `docs/RECORDNOTE_STARRY_ID_V2026-11-07.7_AUDIT.md`。
 
 ## 3. 最新驗證
