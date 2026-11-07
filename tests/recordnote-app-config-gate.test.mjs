@@ -49,5 +49,6 @@ test('App gate runs before automatic token refresh and guest-only mode blocks it
  const boot=page.slice(page.indexOf('async function boot(){'));
  assert.ok(boot.indexOf('await recordnoteStartupGate()')<boot.indexOf('await refresh()'));
  assert.ok(boot.includes("if(gate.status==='active')"));
+ assert.ok(boot.includes("history.replaceState(null,'',location.pathname);sessionStorage.removeItem(KEY_OAUTH);"),'blocked callbacks must erase the provider ID token URL');
  assert.ok(boot.includes("gate.status==='active'&&API&&state.token?'live':'demo'"));
 });
