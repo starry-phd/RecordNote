@@ -2,9 +2,14 @@ import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {existsSync} from 'node:fs';
-import {chromium} from 'playwright-core';
 import worker from '../cloudflare-candidate/recordnote-unified.mjs';
 
+// This suite is opted into only by its browser workflow. Generic node --test
+// runs must not download Chromium or require optional browser-only packages.
+if(process.env.RECORDNOTE_BROWSER_ACCEPTANCE!=='1'){
+ test('Chrome acceptance runs in a separate dedicated GitHub workflow',{skip:'browser-only suite'},()=>{});
+}else{
+const {chromium}=await import('playwright-core');
 const chrome=[
  process.env.CHROME_BIN,
  '/usr/bin/google-chrome',
@@ -99,3 +104,5 @@ test('Real Chromium: time-filtered owner notices render as literal text, never H
   assert.deepEqual(exceptions,[]);
  }finally{await context.close();}
 });
+
+}
