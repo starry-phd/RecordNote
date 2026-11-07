@@ -8,12 +8,14 @@ on:
       - cloudflare-candidate/recordnote-web.mjs
       - tests/recordnote-ui-v2.test.mjs
       - tests/recordnote-compact-home.test.mjs
+      - tests/recordnote-persistent-login.test.mjs
       - .github/workflows/recordnote-ui-quick.yml
   pull_request:
     paths:
       - cloudflare-candidate/recordnote-web.mjs
       - tests/recordnote-ui-v2.test.mjs
       - tests/recordnote-compact-home.test.mjs
+      - tests/recordnote-persistent-login.test.mjs
       - .github/workflows/recordnote-ui-quick.yml
   workflow_dispatch:
 
@@ -31,4 +33,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run pure-Node UI regression tests
-        run: node --test tests/recordnote-ui-v2.test.mjs tests/recordnote-compact-home.test.mjs
+        run: node --test tests/recordnote-ui-v2.test.mjs tests/recordnote-compact-home.test.mjs tests/recordnote-persistent-login.test.mjs
