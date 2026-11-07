@@ -104,7 +104,7 @@ test('Every AI model path has Battery reserve, commit and release; never runs un
  for(const [current,next,task] of [
   ['async function aiSummary(','async function aiQuestion(','summary'] ,
   ['async function aiQuestion(','async function aiTranscribe(','question'] ,
-  ['async function aiTranscribe(','async function principal(','transcribe')
+  ['async function aiTranscribe(','async function principal(','transcribe']
  ]){
   const i=worker.indexOf(current),j=worker.indexOf(next,i);
   assert.ok(i>=0&&j>i);
