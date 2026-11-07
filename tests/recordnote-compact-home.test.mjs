@@ -41,7 +41,7 @@ test('quick recording chooses book without moving to course view',async()=>{
 test('home record button stops current session instead of navigating',async()=>{
  let stops=0,starts=0;
  const state={view:'home',rec:{}};
- const code=section('async function quickRecord(){','async function startRecord(');
+ const code=section('async function quickRecord(){','const RECORDING_MIN_DURATION_MS=3000;');
  const ctx={state,stopRecord:()=>{stops++},startRecord:async b=>{assert.equal(b,true);starts++}};
  await run(code,'quickRecord()',ctx);assert.equal(stops,1);assert.equal(starts,0);
  state.rec=null;await run(code,'quickRecord()',ctx);assert.equal(starts,1);assert.equal(state.view,'home');
