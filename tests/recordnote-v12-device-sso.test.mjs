@@ -9,8 +9,7 @@ const app=read('native/App.tsx');
 const auth=read('expo/RecordNoteStarryAuth.ts');
 const bridge=read('native/StarrySharedSso.ts');
 const config=JSON.parse(read('native/app.json')).expo;
-const permission=read('native/plugins/withStarrySsoProvider.cjs');
-const android=read('native/modules/starry-shared-sso/android/src/main/java/phd/starry/sso/StarrySsoProvider.kt');
+const nativeModuleConfig=JSON.parse(read('native/modules/starry-shared-sso/expo-module.config.json'));
 const ios=read('native/modules/starry-shared-sso/ios/StarrySharedSsoModule.swift');
 const json=JSON.parse(read('vendor/starry-id/starry-id.v1.json'));
 
@@ -22,7 +21,7 @@ test('Vendored central v12 SDK and OpenAPI support all 4 SSO routes',()=>{
   assert.ok(sdk.includes(method),method);
 });
 test('Native Client passes one secure device-shared storage adapter, not a fake local Store',()=>{
- assert.match(auth,/sharedStorage:sharedSsoStorage/);
+ assert.match(auth,/sharedStorage:Platform\\.OS==='ios'\\?sharedSsoStorage:undefined/);
  assert.match(bridge,/requireNativeModule<NativeSso>\('StarrySharedSso'\)/);
  assert.ok(!bridge.includes('SecureStore.getItemAsync'));
  assert.ok(!auth.includes('請重新登入（10 分鐘內）'));
@@ -32,17 +31,12 @@ test('Native Client passes one secure device-shared storage adapter, not a fake 
  assert.ok(app.includes('restoreSignIn()'));
  assert.ok(app.includes('setUser(null)'));
 });
-test('Android provider restricts cross-App reads/writes by signature and encrypts SSO',()=>{
- assert.ok(config.plugins.includes('./plugins/withStarrySsoProvider'));
- assert.ok(permission.includes("android:protectionLevel':'signature'"));
- assert.ok(permission.includes("android:permission':permission"));
- assert.ok(permission.includes('phd.starry.recordnote.sso'));
- assert.ok(android.includes('checkCallingPermission(PERMISSION)'));
- assert.ok(android.includes('Binder.getCallingUid()'));
- assert.ok(android.includes('AndroidKeyStore'));
- assert.ok(android.includes('AES/GCM/NoPadding'));
- assert.ok(android.includes('starry.sso'));
- assert.ok(!android.includes('STARRY_BATTERY_KEY'));
+test('v14 Android shared SSO is optional, not registered and not a release blocker',()=>{
+ assert.ok(!config.plugins.includes('./plugins/withStarrySsoProvider'));
+ assert.deepEqual(nativeModuleConfig.platforms,['ios']);
+ assert.equal(nativeModuleConfig.android,undefined);
+ assert.ok(auth.includes("Platform.OS==='ios'?sharedSsoStorage:undefined"));
+ assert.ok(bridge.includes("const native=()=>requireNativeModule"));
 });
 test('iOS shared Keychain group derives its prefix from signing entitlements',()=>{
  assert.deepEqual(config.ios.entitlements['keychain-access-groups'],

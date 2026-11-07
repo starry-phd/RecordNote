@@ -17,6 +17,9 @@
       ],
       "react-native-passkey": [
         "./node_modules/react-native-passkey"
+      ],
+      "react-native": [
+        "./node_modules/react-native"
       ]
     }
   },

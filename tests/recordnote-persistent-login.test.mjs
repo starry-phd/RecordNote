@@ -23,7 +23,7 @@ test('Legacy browser token is moved once into sessionStorage, not retained persi
  assert.ok(page.includes('storage:sessionStorageAdapter()'));
 });
 test('Web uses official relay and token instead of reimplementing rotation',()=>{
- for(const method of ['beginRelayRedirect','completeRelayRedirect','getAccessToken','signInWithPasskey','registerPasskey','listPasskeys','removePasskey','acceptConsent','signOut','checkApp']){
+ for(const method of ['beginRelayRedirect','completeRelayRedirect','getAccessToken','signInWithPasskey','registerPasskey','listPasskeys','removePasskey','acceptConsent','signOutWebEverywhere','shareWebSignIn','syncWebSignIn','completeWebSsoCheck','checkApp']){
   assert.ok(page.includes('starryClient.'+method+'('),'Missing '+method);
  }
  assert.ok(!page.includes("fetch('https://id.starry.phd/v1/auth/refresh'"));
