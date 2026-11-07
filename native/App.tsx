@@ -140,7 +140,9 @@ export default function App(){
  });
  const avatarUrl=typeof user?.profile?.avatar_url==='string'&&user.profile.avatar_url.startsWith('https://')
   ?user.profile.avatar_url:null;
- const initials=user?.profile?.initials||''; // Always use initials computed by central.
+ const initials=typeof user?.profile?.initials==='string'?user.profile.initials:''; // Central computes initials.
+ const displayName=typeof user?.profile?.nickname==='string'&&user.profile.nickname?user.profile.nickname:
+  typeof user?.profile?.display_name==='string'&&user.profile.display_name?user.profile.display_name:'中央會員';
  const gated=gate?.state!=='ok';
  const warning=!gate?'正在確認中央會員系統…':gate.state==='maintenance'?'繁星答錄機目前維護中。':
   gate.state==='killed'?'繁星答錄機已停止服務。':gate.state==='update_required'?'請更新 App 再繼續。':
@@ -168,7 +170,7 @@ export default function App(){
         {avatarUrl&&!avatarFailed?<Image source={{uri:avatarUrl}} onError={()=>setAvatarFailed(true)} style={styles.avatarImage} accessibilityLabel="會員頭像"/>:null}
       </View>
       <View style={styles.memberDetails}>
-        <Text style={styles.heading}>{user.profile?.nickname||user.profile?.display_name||'中央會員'}</Text>
+        <Text style={styles.heading}>{displayName}</Text>
         <Text style={styles.muted}>會員編號：{user.member_no||'尚未設定'}</Text>
       </View>
     </View>

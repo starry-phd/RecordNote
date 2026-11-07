@@ -64,8 +64,8 @@ test('Read-only balance call uses Starry ID, no App service key or reservation',
  assert.ok(!h.calls[0].init.headers?.['x-starry-app-key']);
  assert.equal(h.state.memberBattery.balance.remaining,74);
  const ui=String(h.execute('memberBatterySection()'));
- assert.match(ui,/本月共用電池/);
- assert.match(ui,/RecordNote 量子電池/);
+ assert.match(ui,/🔋 <strong>74<\\/strong> 顆普通電池/);
+ assert.match(ui,/⚛️ <strong>38<\\/strong> 顆量子電池/);
  assert.match(ui,/38/);
  assert.match(ui,/先扣本月共用額度/);
 });
