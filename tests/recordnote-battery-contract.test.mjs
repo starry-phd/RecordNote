@@ -7,7 +7,7 @@ const worker=readFileSync(new URL('../cloudflare-candidate/recordnote-worker.js'
 const frontend=readFileSync(new URL('../cloudflare-candidate/recordnote-web.mjs',import.meta.url),'utf8');
 const start=worker.indexOf('export const RN_AI_TASKS='),end=worker.indexOf('function toBase64(',start);
 assert.ok(start>0&&end>start);
-const contract=worker.slice(start,end).replace('export const RN_AI_TASKS=','const RN_AI_TASKS=');
+const contract=worker.slice(start,end).replace(/^export /gm,'');
 const valid={
  tasks:{
   summary:{label:'AI 課程摘要',description:'摘要',units:2},
@@ -122,6 +122,9 @@ test('Every AI model path has Battery reserve, commit and release; never runs un
 test('Browser never receives the service key and AI summary sends a fresh idempotency identifier',()=>{
  assert.ok(!frontend.includes('STARRY_BATTERY_KEY'));
  assert.ok(frontend.includes("'X-RecordNote-AI-Idempotency-Key':crypto.randomUUID()"));
- assert.ok(frontend.includes("id=\"aiBatteryPricingForm\""));
+ const matched=/const PAGE=("(?:\\.|[^"\\])*")/s.exec(frontend);
+ assert.ok(matched,'frontend PAGE literal exists');
+ const html=JSON.parse(matched[1]);
+ assert.ok(html.includes('id="aiBatteryPricingForm"'));
  assert.ok(frontend.includes("state.aiBatteryPolicy?.can_manage"));
 });
