@@ -68,16 +68,36 @@ jobs:
           test -s "$APK" || { echo "::error::Signed APK not produced"; exit 1; }
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n1)"
           test -x "$APKSIGNER" || { echo "::error::apksigner not found on GitHub runner"; exit 1; }
-          "$APKSIGNER" verify --print-certs "$APK" > "$RUNNER_TEMP/recordnote-apk-certificate.txt"
-          SHA256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/recordnote-apk-certificate.txt" | head -n1 | tr -d '\r')"
-          [[ "$SHA256" =~ ^[0-9a-fA-F]{64}$ ]] || { echo "::error::APK SHA256 signature missing"; exit 1; }
-          printf '%s\n' "$SHA256" > native/RecordNote-Android-test-SHA256.txt
+          # The certificate fingerprint is PUBLIC metadata of the signed APK.
+          # Print it in Actions logs so parsing problems can be diagnosed.
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/recordnote-apk-certificate.txt"
+          python3 - <<'PY'
+          import pathlib, re, os, sys
+          report = pathlib.Path(os.environ['RUNNER_TEMP']) / 'recordnote-apk-certificate.txt'
+          raw = report.read_text(encoding='utf-8')
+          found = None
+          for line in raw.splitlines():
+              match = re.search(r'Signer\\s+#1\\s+certificate\\s+SHA-256\\s+digest\\s*:\\s*(.*)', line, re.I)
+              if not match:
+                  continue
+              candidate = re.sub(r'[:\\s]', '', match.group(1)).lower()
+              if re.fullmatch(r'[0-9a-f]{64}', candidate):
+                  found = candidate
+                  break
+          if not found:
+              print('::error::Verified APK contains no readable signer SHA-256; see apksigner public certificate output above.')
+              sys.exit(1)
+          pathlib.Path('native/RecordNote-Android-test-SHA256.txt').write_text(found + '\\n', encoding='ascii')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as out:
+              out.write('APK_SIGNER_SHA256=' + found + '\\n')
+          print('RecordNote signed APK certificate SHA-256: ' + found)
+          PY
           {
             echo '## RecordNote Android 測試 APK SHA-256'
             echo
             echo '本次產生的測試 APK 的真實 SHA-256 指紋：'
             echo
-            echo "$SHA256"
+            echo "$APK_SIGNER_SHA256"
             echo
             echo 'App ID: phd.starry.recordnote'
             echo '下載：本次執行頁面下方 Artifacts → RecordNote-test-APK-with-SHA256'
