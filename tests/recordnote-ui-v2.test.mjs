@@ -65,11 +65,13 @@ test('record card has two compact rows; Play and Trim are visible, all others in
 test('settings account and location first; advanced options hidden, including deletion',()=>{
  const base={state:{mode:'live',uploadPolicy:{can_manage:true,max_file_mb:200},storageFolderName:'下載',pending:[]},
   readNameRule:()=>({prefix:'RecordNote',date:true,time:true,counter:true}),
-  banner:()=>'',aiBatterySettings:()=>'',centralMemberSection:()=>'',memberBatterySection:()=>'',passkeySection:()=>'',passkeyLoginButton:()=>'',recordnoteSupportUrl:()=> 'https://id.starry.phd/support?app_id=recordnote',e,ID:'https://id.starry.phd',gpsOptIn:()=>true,mdGeoOptIn:()=>true,
+  banner:()=>'',aiBatterySettings:()=>'',officialSettingsBlocks:()=>'<section><h3>繁星電池艙</h3></section><section><h3>我的中央會員</h3></section><section><h3>我的 Passkey</h3></section>',passkeyLoginButton:()=>'',recordnoteSupportUrl:()=> 'https://id.starry.phd/support?app_id=recordnote',e,ID:'https://id.starry.phd',gpsOptIn:()=>true,mdGeoOptIn:()=>true,
   mdManualPoint:()=>null,mdGoogleMapsUrl:()=> 'https://www.google.com/maps',mdManualRecordEnabled:()=>false};
  for(const desktop of [true,false]){
   const html=execute('settings','function settings(){','function dialog(){',{...base,mdDesktopLocation:()=>desktop});
-  assert.ok(html.indexOf('<h3>Starry ID')<html.indexOf('<h3>定位與地名'));
+  assert.ok(html.indexOf('<h3>繁星電池艙')<html.indexOf('<h3>我的中央會員'));
+  assert.ok(html.indexOf('<h3>我的中央會員')<html.indexOf('<h3>我的 Passkey'));
+  assert.ok(html.indexOf('<h3>我的 Passkey')<html.indexOf('<h3>定位與地名'));
   assert.ok(html.indexOf('<h3>定位與地名')<html.indexOf('<summary>其他設定</summary>'));
   const a=html.indexOf('<summary>其他設定</summary>');
   for(const id of ['nameRuleForm','uploadPolicyForm','selectFolder','deleteMyData'])
