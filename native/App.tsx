@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import {StarryMemberWebView,type MemberPage} from './StarryMemberWebView';
 import {Image} from 'expo-image';
+import {starryAvatarSource} from './StarryAvatarUrl';
 import {starrySettingsBlocks,type SettingsButtonId,type SettingsInput} from '../vendor/starry-id/starry-client';
 import {Passkey} from 'react-native-passkey';
 import {
@@ -31,6 +32,14 @@ function Button({text,onPress,disabled=false,danger=false}:{text:string;onPress:
   style={({pressed})=>[styles.button,danger&&styles.danger,disabled&&styles.disabled,pressed&&styles.pressed]}>
   <Text style={styles.buttonText}>{text}</Text>
  </Pressable>;
+}
+function CentralMemberAvatar({url,initials}:{url:string|null;initials:string}){
+ const source=starryAvatarSource(url);
+ return <View style={styles.avatar}>
+  <Text style={styles.avatarText}>{initials}</Text>
+  {source?<Image key={source.cacheKey} source={source}
+   style={styles.avatarImage} cachePolicy="disk" contentFit="cover"/>:null}
+ </View>;
 }
 export default function App(){
  const [gate,setGate]=useState<AppGate|null>(null),[user,setUser]=useState<Me|null>(null);
@@ -196,11 +205,7 @@ export default function App(){
     {settingsBlocks.map(block=><View key={block.id} style={styles.card}>
       <Text style={styles.heading}>{block.title}</Text>
       {block.avatar?<View style={styles.memberRow}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{block.avatar.initials}</Text>
-          {block.avatar.url?<Image key={block.avatar.url.split('?')[0]}
-           source={{uri:block.avatar.url,cacheKey:block.avatar.url.split('?')[0]}}
-           style={styles.avatarImage} cachePolicy="disk" contentFit="cover"/>:null}
-        </View>
+        <CentralMemberAvatar url={block.avatar.url} initials={block.avatar.initials}/>
         <Text style={styles.memberName}>{block.name}</Text>
        </View>:null}
       {block.lines.map((line,i)=><Text key={i} style={styles.memberLine}>{line}</Text>)}
