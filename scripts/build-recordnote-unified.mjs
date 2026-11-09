@@ -72,8 +72,8 @@ const newRouting=String.raw`const website = pathname==='/' ||
    pathname==='/admin/metadata' ||
    pathname==='/assets/m4a-mdta.mjs' ||
    pathname.startsWith('/vendor/ffmpeg/');`;
-if(!result.includes(oldRouting))throw Error('Worker SPA route gateway changed unexpectedly');
-result=result.replace(oldRouting,newRouting);
+if(result.includes(oldRouting))result=result.replace(oldRouting,newRouting);
+else if(!result.includes(newRouting))throw Error('Worker SPA route gateway changed unexpectedly');
 
 if((result.match(/\bexport default\b/g)||[]).length!==1)throw Error('Expected one bundled Worker entrypoint');
 if(!result.includes('apiBase: window.location.origin'))throw Error('Same-origin Web/API routing missing');
