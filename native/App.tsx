@@ -3,6 +3,8 @@ import {ActivityIndicator,Alert,AppState,Linking,Modal,Platform,Pressable,Scroll
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import {StarryMemberWebView,type MemberPage} from './StarryMemberWebView';
+import {Image} from 'expo-image';
+import {starrySettingsBlocks,type SettingsButtonId,type SettingsInput} from '../vendor/starry-id/starry-client';
 import {Passkey} from 'react-native-passkey';
 import {
  acceptConsent,addPasskey,checkApp,clearLocalSignIn,centralPasskeyError,
@@ -33,7 +35,8 @@ function Button({text,onPress,disabled=false,danger=false}:{text:string;onPress:
 export default function App(){
  const [gate,setGate]=useState<AppGate|null>(null),[user,setUser]=useState<Me|null>(null);
  const [consent,setConsent]=useState(false),[passkeys,setPasskeys]=useState<Key[]>([]);
- const [memberPage,setMemberPage]=useState<MemberPage|null>(null),[cardRefresh,setCardRefresh]=useState(0);
+ const [memberPage,setMemberPage]=useState<MemberPage|null>(null);
+ const [battery,setBattery]=useState<SettingsInput['battery']>(null);
  const [deleteConfirmOpen,setDeleteConfirmOpen]=useState(false);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmText,setConfirmText]=useState('');
  const lastCheck=useRef(0),checking=useRef(false),mounted=useRef(true);
@@ -47,6 +50,12 @@ export default function App(){
   const data=await listPasskeys();
   if(mounted.current)setPasskeys(data);
  },[]);
+ const readBattery=useCallback(async()=>{
+  try{
+   const data=await starryClient.request<NonNullable<SettingsInput['battery']>>('GET','/v1/me/battery');
+   if(mounted.current)setBattery(data);
+  }catch{if(mounted.current)setBattery(null);}
+ },[]);
  const syncMember=useCallback(async()=>{
   // Always consult shared device SSO on every foreground transition,
   // including when remote config is throttled to once per minute.
@@ -55,13 +64,13 @@ export default function App(){
   try {
    const signedIn=await restoreSignIn(); // official SDK restore() includes syncDeviceSignIn()
    if(!mounted.current)return;
-   if(!signedIn){setUser(null);setConsent(false);setPasskeys([]);return;}
-   try{await readUser();}
-   catch {if(mounted.current)setMessage('已保留登入資料，稍後重新讀取會員資訊。');}
+   if(!signedIn){setUser(null);setConsent(false);setPasskeys([]);setBattery(null);return;}
+   const settled=await Promise.allSettled([readUser(),readKeys(),readBattery()]);
+   if(settled[0].status==='rejected'&&mounted.current)setMessage('已保留登入資料，稍後重新讀取會員資訊。');
   }catch{
    if(mounted.current)setMessage('無法同步其他繁星 App 的登入狀態，請檢查網路。');
   }finally{syncing.current=false;}
- },[readUser]);
+ },[readUser,readKeys,readBattery]);
  const checkCentral=useCallback(async(force=false)=>{
   if(checking.current)return;
   if(!force&&Date.now()-lastCheck.current<FOREGROUND_INTERVAL_MS){
@@ -84,7 +93,7 @@ export default function App(){
  },[syncMember]);
  useEffect(()=>{
   mounted.current=true;void checkCentral(true);
-  const listener=AppState.addEventListener('change',state=>{if(state==='active'){setCardRefresh(n=>n+1);void checkCentral();}});
+  const listener=AppState.addEventListener('change',state=>{if(state==='active')void checkCentral();});
   return ()=>{mounted.current=false;listener.remove();};
  },[checkCentral]);
  const run=useCallback(async(action:()=>Promise<void>,isPasskey=false)=>{
@@ -97,7 +106,7 @@ export default function App(){
   if(gate?.state!=='ok')return;
   const result=await signInWithProvider(provider);
   if(!result)return;
-  setConsent(Boolean(result.consent_required));await readUser();
+  setConsent(Boolean(result.consent_required));await Promise.allSettled([readUser(),readKeys(),readBattery()]);
  });
  const loginPasskey=()=>void run(async()=>{
   if(gate?.state!=='ok')return;
@@ -106,7 +115,7 @@ export default function App(){
   setConsent(Boolean(result.consent_required));await readUser();
  },true);
  const logout=()=>void run(async()=>{
-  await clearLocalSignIn();setUser(null);setPasskeys([]);setConsent(false);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
+  await clearLocalSignIn();setUser(null);setPasskeys([]);setBattery(null);setConsent(false);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
  });
  const approve=()=>void run(async()=>{await acceptConsent();setConsent(false);await readUser();});
  const addKey=()=>void run(async()=>{
@@ -121,7 +130,7 @@ export default function App(){
   Alert.alert('永久刪除 Starry ID 帳號','立即永久刪除，沒有撤回期，也不會自動取消 App Store／Google Play 訂閱。確定嗎？',[
    {text:'取消',style:'cancel'},
    {text:'永久刪除',style:'destructive',onPress:()=>void run(async()=>{
-    await deleteAccount();setUser(null);setPasskeys([]);setConsent(false);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
+    await deleteAccount();setUser(null);setPasskeys([]);setBattery(null);setConsent(false);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
     setMessage('中央會員刪除程序已完成。');
    })}
   ]);
@@ -140,6 +149,24 @@ export default function App(){
   const url=ID+'/Invite/'+encodeURIComponent(memberNo);
   await Share.share({message:url,url});
  });
+ const settingsBlocks=starrySettingsBlocks({me:user,battery,passkeys});
+ const settingAction=(id:SettingsButtonId)=>{
+  switch(id){
+   case 'battery-history': setMemberPage('battery');break;
+   case 'public-profile': void run(async()=>{
+    if(!user)return;
+    const me=await starryClient.me();
+    if(me.user_id!==user.user_id||!me.member_no)return;
+    setUser(me);await Linking.openURL(ID+'/'+encodeURIComponent(me.member_no));
+   });break;
+   case 'share-invite':invite();break;
+   case 'member-center':setMemberPage('profile');break;
+   case 'support':contact();break;
+   case 'sign-out-all':logout();break;
+   case 'delete-account':setConfirmText('');setDeleteConfirmOpen(true);break;
+   case 'add-passkey':addKey();break;
+  }
+ };
  const gated=gate?.state!=='ok';
  const warning=!gate?'正在確認中央會員系統…':gate.state==='maintenance'?'繁星答錄機目前維護中。':
   gate.state==='killed'?'繁星答錄機已停止服務。':gate.state==='update_required'?'請更新 App 再繼續。':
@@ -166,28 +193,28 @@ export default function App(){
     <Button text="我同意條款與隱私權政策" disabled={busy} onPress={approve}/>
    </View>:null}
    {!gated&&user&&!consent?<>
-    <StarryMemberWebView page="card" userId={user.user_id} refreshKey={cardRefresh}/>
-    <View style={styles.card}>
-     <Button text="會員中心" disabled={busy} onPress={()=>setMemberPage('profile')}/>
-     <Button text="聯絡客服" disabled={busy} onPress={contact}/>
-     <Button text="登出所有繁星 App" disabled={busy} onPress={logout}/>
-     <Button text="永久刪除中央帳號" disabled={busy} danger onPress={()=>{setConfirmText('');setDeleteConfirmOpen(true);}}/>
-    </View>
-    <View style={styles.card}>
-     <Text style={styles.heading}>我的 Passkey</Text>
-     {passkeySupported?<Button text="新增 Passkey" disabled={busy} onPress={addKey}/>:null}
-     <Button text="查看我的 Passkey" disabled={busy} onPress={()=>void run(readKeys,true)}/>
-     {passkeys.map(k=><View key={k.id} style={styles.keyRow}>
-      <Text style={styles.keyName}>{k.name||'Passkey'}</Text>
-      <Button text="移除" disabled={busy} danger onPress={()=>removeKey(k)}/>
-     </View>)}
-     <Text style={styles.muted}>每位會員最多 10 把 Passkey，登入後隨時可以新增。</Text>
-    </View>
+    {settingsBlocks.map(block=><View key={block.id} style={styles.card}>
+      <Text style={styles.heading}>{block.title}</Text>
+      {block.avatar?<View style={styles.memberRow}>
+        <View style={styles.avatar}><Text style={styles.avatarText}>{block.avatar.initials}</Text>
+          {block.avatar.url?<Image key={block.avatar.url.split('?')[0]}
+           source={{uri:block.avatar.url,cacheKey:block.avatar.url.split('?')[0]}}
+           style={styles.avatarImage} cachePolicy="disk" contentFit="cover"/>:null}
+        </View>
+        <Text style={styles.memberName}>{block.name}</Text>
+       </View>:null}
+      {block.lines.map((line,i)=><Text key={i} style={styles.memberLine}>{line}</Text>)}
+      {block.passkeys?.map(key=><View key={key.id} style={styles.keyRow}>
+       <Text style={styles.keyName}>{key.name}</Text>
+       <Button text={key.removeLabel} danger disabled={busy} onPress={()=>removeKey(key)}/>
+      </View>)}
+      {block.buttons.map(button=><Button key={button.id} text={button.label}
+       danger={Boolean(button.danger)} disabled={busy||(button.id==='add-passkey'&&!passkeySupported)}
+       onPress={()=>settingAction(button.id)}/>)}
+    </View>)}
     <View style={styles.card}>
      <Text style={styles.heading}>繁星答錄機設定</Text>
-     <Button text="分享邀請連結" disabled={busy} onPress={invite}/>
      <Button text="開啟既有 RecordNote 網頁版" disabled={busy} onPress={()=>open(WEB)}/>
-     <Text style={styles.muted}>此基座僅驗收原生登入。錄音、AI 任務與完整 RecordNote 手機畫面尚未移植。</Text>
     </View>
    </>:null}
    {message?<Text accessibilityRole="alert" style={styles.error}>{message}</Text>:null}
@@ -224,6 +251,12 @@ const styles=StyleSheet.create({
  buttonText:{fontWeight:'600',fontSize:15,color:'#fff'},
  muted:{fontSize:14,lineHeight:21,color:'#475569'},error:{color:'#b91c1c'},
  keyRow:{flexDirection:'row',alignItems:'center',gap:10},keyName:{flex:1},
+ memberRow:{flexDirection:'row',alignItems:'center',gap:12},
+ avatar:{width:56,height:56,borderRadius:28,backgroundColor:'#e5e7eb',alignItems:'center',justifyContent:'center',overflow:'hidden'},
+ avatarText:{fontSize:19,fontWeight:'700',color:'#334155'},
+ avatarImage:{position:'absolute',width:56,height:56,borderRadius:28},
+ memberName:{fontSize:17,fontWeight:'700',color:'#17233d'},
+ memberLine:{fontSize:15,color:'#334155'},
  input:{borderWidth:1,borderColor:'#cbd5e1',borderRadius:7,padding:10},
  modalRoot:{flex:1,backgroundColor:'#fff',paddingTop:48},
  modalClose:{alignSelf:'flex-end',paddingHorizontal:20,paddingVertical:12},
