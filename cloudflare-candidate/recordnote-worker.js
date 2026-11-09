@@ -35,7 +35,7 @@ async function mdLive(env){
  return r?JSON.parse(r.config_json):{schema_version:1,app_id:'recordnote',revision:0,status:'not_published',scope:'future_recordings_only',settings:{rewrite_existing_recordings:false},fields:Object.fromEntries(MD_CATALOG.map(f=>[f.id,{enabled:false,mode:'fixed',value:''}]))};
 }
 async function mdAdmin(req,env,user,p,method){
- if(!isUploadSuperadmin(env,user))return mdErr('FORBIDDEN',403);
+ if(!isUploadSuperadmin(req,env,user))return mdErr('FORBIDDEN',403);
  const now=Date.now();
  const current=async()=>{const r=await env.DB.prepare('SELECT draft_revision,config_json FROM rn_metadata_policy_drafts WHERE policy_key=?').bind(MD_POLICY_KEY).first();return r?{rev:r.draft_revision,policy:JSON.parse(r.config_json)}:{rev:0,policy:structuredClone(MD_DEFAULT)}};
  const read=async()=>{const txt=await req.text();if(txt.length>110000)throw Error('TOO_LARGE');return JSON.parse(txt)};
@@ -481,12 +481,10 @@ async function principal(req,env){
   verifiedCentralIdentity.set(req,{user_id:user,staff_role:account.staff_role||null});
   return claims.sub;
 }
-// RecordNote-only policy and authorization. The central Starry ID is read-only.
-// User IDs are provisioned by the RecordNote owner into this Worker's bindings;
-// a UI flag, client JWT claim, or display name is never sufficient for elevation.
-function isUploadSuperadmin(env,user){
- const ids=String(env.RECORDNOTE_SUPERADMIN_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
- return !!user&&ids.includes(user);
+// Owner permission is verified from Starry ID GET /v1/me for EACH admin request.
+// An old static allowlist, UI flag, client JWT claim or email is never sufficient.
+function isUploadSuperadmin(req,env,user){
+ return isCentralOwner(req,user);
 }
 export function validUploadLimitMb(value){return Number.isSafeInteger(value)&&value>=1&&value<=MAX_CONFIGURABLE_MB;}
 
@@ -796,10 +794,10 @@ async function route(req,env){
   }
   if(p==='/v1/upload-policy'&&method==='GET'){
     const mb=await uploadPolicy(env);
-    return respond({max_file_mb:mb,max_file_bytes:mb*1000000,part_size_bytes:UPLOAD_PART_BYTES,unlimited_duration:true,can_manage:isUploadSuperadmin(env,user),minimum_mb:1,maximum_mb:MAX_CONFIGURABLE_MB});
+    return respond({max_file_mb:mb,max_file_bytes:mb*1000000,part_size_bytes:UPLOAD_PART_BYTES,unlimited_duration:true,can_manage:isUploadSuperadmin(req,env,user),minimum_mb:1,maximum_mb:MAX_CONFIGURABLE_MB});
   }
   if(p==='/v1/admin/upload-policy'&&method==='PUT'){
-    if(!isUploadSuperadmin(env,user))return fail('FORBIDDEN',403);
+    if(!isUploadSuperadmin(req,env,user))return fail('FORBIDDEN',403);
     const data=await payload(req),mb=data.max_file_mb;
     if(!validUploadLimitMb(mb))return fail('INVALID_UPLOAD_LIMIT',422);
     await env.DB.prepare("INSERT INTO app_settings(key,value,updated_by,updated_at_ms) VALUES('max_upload_mb',?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms").bind(String(mb),user,Date.now()).run();

@@ -67,12 +67,19 @@ const oldRouting=`const website = pathname==='/' ||
    pathname==='/assets/m4a-mdta.mjs' ||
    pathname.startsWith('/vendor/ffmpeg/');`;
 const newRouting=String.raw`const website = pathname==='/' ||
+   ['/index.html','/books','/search','/settings','/storage','/trash','/admin','/assets/recordnote-metadata-admin.html'].includes(pathname) ||
+   /^\/courses\/[^/]+$/.test(pathname) ||
+   pathname==='/admin/metadata' ||
+   pathname==='/assets/m4a-mdta.mjs' ||
+   pathname.startsWith('/vendor/ffmpeg/');`;
+const previousRouting=String.raw`const website = pathname==='/' ||
    ['/index.html','/books','/search','/settings','/storage','/trash'].includes(pathname) ||
    /^\/courses\/[^/]+$/.test(pathname) ||
    pathname==='/admin/metadata' ||
    pathname==='/assets/m4a-mdta.mjs' ||
    pathname.startsWith('/vendor/ffmpeg/');`;
 if(result.includes(oldRouting))result=result.replace(oldRouting,newRouting);
+else if(result.includes(previousRouting))result=result.replace(previousRouting,newRouting);
 else if(!result.includes(newRouting))throw Error('Worker SPA route gateway changed unexpectedly');
 
 if((result.match(/\bexport default\b/g)||[]).length!==1)throw Error('Expected one bundled Worker entrypoint');
