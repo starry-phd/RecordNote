@@ -30,7 +30,7 @@ test('v18 uses centrally supplied mutable member_no, initials and expiring avata
   assert.ok(me.properties[f],f);
  assert.ok(profile.properties.avatar_url);
  assert.ok(profile.properties.initials);
- assert.ok(native.includes('user?.profile?.initials'));
+ assert.ok(native.includes('<StarryMemberWebView page="card"'), 'Native delegates member display to the central WebView');
  assert.ok(native.includes('encodeURIComponent(memberNo)'));
  assert.ok(native.includes('Share.share({message:url,url})'));
  assert.ok(!native.includes('/v1/me/avatar'));
