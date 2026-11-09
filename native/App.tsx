@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,AppState,Linking,Modal,Platform,Pressable,ScrollView,Share,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import * as Clipboard from 'expo-clipboard';
 import {StarryMemberWebView,type MemberPage} from './StarryMemberWebView';
 import {Image} from 'expo-image';
 import {starryAvatarSource} from './StarryAvatarUrl';
@@ -12,12 +13,13 @@ import {
  deleteAccount,listPasskeys,removePasskey,restoreSignIn,
  signInWithPasskey,signInWithProvider,starryClient,supportUrl
 } from '../expo/RecordNoteStarryAuth';
-import type {AppGate,Me} from '../vendor/starry-id/starry-client';
+import type {AppGate,Me,LatestHandoff} from '../vendor/starry-id/starry-client';
 
 const ID='https://id.starry.phd',WEB='https://recordnote.starry.phd';
 const VERSION=Constants.expoConfig?.version||'0.1.0';
 const BUILD=Platform.OS==='ios'?String(Constants.expoConfig?.ios?.buildNumber||'1'):String(Constants.expoConfig?.android?.versionCode||'1');
 const DEVICE=Device.modelName||Platform.OS,FOREGROUND_INTERVAL_MS=60000;
+const INTEGRATED_STARRY_HANDOFF_VERSION='2026-11-09.6';
 type Key={id:string;name:string};
 function explain(error:unknown,isPasskey=false):string|null{
  if(isPasskey)return centralPasskeyError(error);
@@ -27,9 +29,9 @@ function explain(error:unknown,isPasskey=false):string|null{
  if(e?.code==='NETWORK')return '中央會員系統暫時無法連線。';
  return e?.code?'操作未完成：'+e.code:'操作未完成，請稍後再試。';
 }
-function Button({text,onPress,disabled=false,danger=false}:{text:string;onPress:()=>void;disabled?:boolean;danger?:boolean}){
+function Button({text,onPress,disabled=false,danger=false,inverse=false}:{text:string;onPress:()=>void;disabled?:boolean;danger?:boolean;inverse?:boolean}){
  return <Pressable accessibilityRole="button" accessibilityLabel={text} disabled={disabled} onPress={onPress}
-  style={({pressed})=>[styles.button,danger&&styles.danger,disabled&&styles.disabled,pressed&&styles.pressed]}>
+  style={({pressed})=>[styles.button,danger&&styles.danger,inverse&&styles.inverse,disabled&&styles.disabled,pressed&&styles.pressed]}>
   <Text style={styles.buttonText}>{text}</Text>
  </Pressable>;
 }
@@ -45,6 +47,8 @@ export default function App(){
  const [gate,setGate]=useState<AppGate|null>(null),[user,setUser]=useState<Me|null>(null);
  const [consent,setConsent]=useState(false),[passkeys,setPasskeys]=useState<Key[]>([]);
  const [memberPage,setMemberPage]=useState<MemberPage|null>(null);
+ const [nativePage,setNativePage]=useState<'settings'|'admin'>('settings');
+ const [handoff,setHandoff]=useState<LatestHandoff|null>(null),[handoffError,setHandoffError]=useState('');
  const [battery,setBattery]=useState<SettingsInput['battery']>(null);
  const [deleteConfirmOpen,setDeleteConfirmOpen]=useState(false);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmText,setConfirmText]=useState('');
@@ -53,7 +57,7 @@ export default function App(){
  const passkeySupported=Passkey.isSupported();
  const readUser=useCallback(async()=>{
   const data=await starryClient.me();
-  if(mounted.current){setUser(data);setConsent(Boolean(data.consent?.required));}
+  if(mounted.current){setUser(data);setConsent(Boolean(data.consent?.required));if(data.staff_role!=='owner')setNativePage('settings');}
  },[]);
  const readKeys=useCallback(async()=>{
   const data=await listPasskeys();
@@ -73,7 +77,7 @@ export default function App(){
   try {
    const signedIn=await restoreSignIn(); // official SDK restore() includes syncDeviceSignIn()
    if(!mounted.current)return;
-   if(!signedIn){setUser(null);setConsent(false);setPasskeys([]);setBattery(null);return;}
+   if(!signedIn){setUser(null);setConsent(false);setPasskeys([]);setBattery(null);setNativePage('settings');setHandoff(null);return;}
    const settled=await Promise.allSettled([readUser(),readKeys(),readBattery()]);
    if(settled[0].status==='rejected'&&mounted.current)setMessage('已保留登入資料，稍後重新讀取會員資訊。');
   }catch{
@@ -124,7 +128,7 @@ export default function App(){
   setConsent(Boolean(result.consent_required));await readUser();
  },true);
  const logout=()=>void run(async()=>{
-  await clearLocalSignIn();setUser(null);setPasskeys([]);setBattery(null);setConsent(false);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
+  await clearLocalSignIn();setUser(null);setPasskeys([]);setBattery(null);setConsent(false);setNativePage('settings');setHandoff(null);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
  });
  const approve=()=>void run(async()=>{await acceptConsent();setConsent(false);await readUser();});
  const addKey=()=>void run(async()=>{
@@ -139,7 +143,7 @@ export default function App(){
   Alert.alert('永久刪除 Starry ID 帳號','立即永久刪除，沒有撤回期，也不會自動取消 App Store／Google Play 訂閱。確定嗎？',[
    {text:'取消',style:'cancel'},
    {text:'永久刪除',style:'destructive',onPress:()=>void run(async()=>{
-    await deleteAccount();setUser(null);setPasskeys([]);setBattery(null);setConsent(false);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
+    await deleteAccount();setUser(null);setPasskeys([]);setBattery(null);setConsent(false);setNativePage('settings');setHandoff(null);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
     setMessage('中央會員刪除程序已完成。');
    })}
   ]);
@@ -158,6 +162,24 @@ export default function App(){
   const url=ID+'/Invite/'+encodeURIComponent(memberNo);
   await Share.share({message:url,url});
  });
+ const openAdmin=()=>void run(async()=>{
+  if(!user)return;
+  const me=await starryClient.me();
+  if(me.user_id!==user.user_id||me.staff_role!=='owner'){setNativePage('settings');setHandoff(null);setMessage('只有中央 Owner 可以使用 Admin 專區。');return;}
+  setUser(me);setNativePage('admin');setHandoff(null);setHandoffError('');
+  try{
+   const next=await starryClient.getLatestHandoff(INTEGRATED_STARRY_HANDOFF_VERSION);
+   if(next.app_id!=='recordnote')throw Error('HANDOFF_APP_MISMATCH');
+   setHandoff(next);
+  }catch{setHandoffError('無法取得最新串接指令，請稍後重試。');}
+ });
+ const copyHandoff=()=>void run(async()=>{
+  if(nativePage!=='admin'||user?.staff_role!=='owner'||!handoff||handoff.up_to_date)return;
+  const me=await starryClient.me();
+  if(me.user_id!==user.user_id||me.staff_role!=='owner'){setNativePage('settings');setHandoff(null);return;}
+  await Clipboard.setStringAsync(handoff.text);
+  setMessage('已複製最新串接指令。');
+ });
  const settingsBlocks=starrySettingsBlocks({me:user,battery,passkeys});
  const settingAction=(id:SettingsButtonId)=>{
   switch(id){
@@ -170,6 +192,7 @@ export default function App(){
    });break;
    case 'share-invite':invite();break;
    case 'member-center':setMemberPage('profile');break;
+   case 'admin':openAdmin();break;
    case 'support':contact();break;
    case 'sign-out-all':logout();break;
    case 'delete-account':setConfirmText('');setDeleteConfirmOpen(true);break;
@@ -183,7 +206,7 @@ export default function App(){
  return <View style={styles.root}>
   <StatusBar barStyle="dark-content"/>
   <ScrollView contentContainerStyle={styles.scroll}>
-   <Text style={styles.title}>{user?'設定':'繁星答錄機 RecordNote'}</Text>
+   <Text style={styles.title}>{user?(nativePage==='admin'?'Admin 專區':'設定'):'繁星答錄機 RecordNote'}</Text>
    <Text style={styles.sub}>Starry ID 原生驗收基座 · {VERSION} ({BUILD})</Text>
    {warning?<View style={styles.alert}><Text>{warning}</Text></View>:null}
    {gate?.notices?.map((n,i)=><View key={i} style={styles.alert}><Text>{n.message}</Text></View>)}
@@ -201,7 +224,7 @@ export default function App(){
     <Button text="閱讀隱私權政策" disabled={busy} onPress={()=>open(ID+'/privacy')}/>
     <Button text="我同意條款與隱私權政策" disabled={busy} onPress={approve}/>
    </View>:null}
-   {!gated&&user&&!consent?<>
+   {!gated&&user&&!consent&&nativePage==='settings'?<>
     {settingsBlocks.map(block=><View key={block.id} style={styles.card}>
       <Text style={styles.heading}>{block.title}</Text>
       {block.avatar?<View style={styles.memberRow}>
@@ -213,13 +236,25 @@ export default function App(){
        <Text style={styles.keyName}>{key.name}</Text>
        <Button text={key.removeLabel} danger disabled={busy} onPress={()=>removeKey(key)}/>
       </View>)}
-      {block.buttons.map(button=><Button key={button.id} text={button.label}
-       danger={Boolean(button.danger)} disabled={busy||(button.id==='add-passkey'&&!passkeySupported)}
+      {block.buttons.map(button=><Button key={button.id} text={(button.icon==='gear'?'⚙ ':'')+button.label}
+       danger={Boolean(button.danger)} inverse={Boolean(button.inverse)} disabled={busy||(button.id==='add-passkey'&&!passkeySupported)}
        onPress={()=>settingAction(button.id)}/>)}
     </View>)}
     <View style={styles.card}>
      <Text style={styles.heading}>繁星答錄機設定</Text>
      <Button text="開啟既有 RecordNote 網頁版" disabled={busy} onPress={()=>open(WEB)}/>
+    </View>
+   </>:null}
+   {!gated&&user&&!consent&&nativePage==='admin'&&user.staff_role==='owner'?<>
+    <View style={styles.card}>
+     <Text style={styles.heading}>串接指令</Text>
+     <Text style={styles.memberLine}>目前採用版本：{INTEGRATED_STARRY_HANDOFF_VERSION}</Text>
+     <Text style={styles.memberLine}>中央最新版本：{handoff?.version||'查詢中…'}</Text>
+     <Text style={styles.memberLine}>{handoff?(handoff.up_to_date?'已是最新':'有新版'):(handoffError||'正在確認中央版本…')}</Text>
+     <Text style={styles.muted}>更新時請 AI 只補差異，不要整份重做</Text>
+     {!handoff?.up_to_date&&handoff?.text?<Button text="複製最新串接指令" disabled={busy} inverse onPress={copyHandoff}/>:null}
+     <Button text="重新檢查版本" disabled={busy} onPress={openAdmin}/>
+     <Button text="返回設定" onPress={()=>setNativePage('settings')}/>
     </View>
    </>:null}
    {message?<Text accessibilityRole="alert" style={styles.error}>{message}</Text>:null}
@@ -252,7 +287,7 @@ const styles=StyleSheet.create({
  alert:{padding:12,borderRadius:8,backgroundColor:'#e4edff'},heading:{fontSize:18,fontWeight:'700',color:'#17233d'},
  card:{padding:16,borderRadius:12,backgroundColor:'#fff',gap:12},
  button:{padding:13,backgroundColor:'#354e7a',borderRadius:8,alignItems:'center'},
- danger:{backgroundColor:'#9a2d36'},disabled:{opacity:.5},pressed:{opacity:.75},
+ danger:{backgroundColor:'#9a2d36'},inverse:{backgroundColor:'#182845'},disabled:{opacity:.5},pressed:{opacity:.75},
  buttonText:{fontWeight:'600',fontSize:15,color:'#fff'},
  muted:{fontSize:14,lineHeight:21,color:'#475569'},error:{color:'#b91c1c'},
  keyRow:{flexDirection:'row',alignItems:'center',gap:10},keyName:{flex:1},
