@@ -54,16 +54,18 @@ test('Web avatar is refreshed at every settings entry and foreground resume, eve
  assert.ok(page.includes('data-cache-key'));
  assert.ok(page.includes("img.addEventListener('error'"));
 });
-test('Native uses central shown_name, path-keyed Expo image and refetches on AppState active',()=>{
- assert.equal(pkg.dependencies['expo-image'],'~58.0.18');
- assert.ok(native.includes("avatarUrl.split('?')[0]"));
- assert.ok(native.includes('cacheKey:avatarCacheKey||undefined'));
- assert.ok(native.includes('key={avatarCacheKey}'));
- assert.ok(native.includes("user?.profile?.shown_name"));
- assert.ok(native.includes('user.profile.shown_name:initials'));
- assert.ok(native.includes('restoreSignIn()'));
+test('Native delegates all member display to the Starry ID WebView and refreshes on foreground',()=>{
+ const card=read('native/StarryMemberWebView.tsx');
+ assert.equal(pkg.dependencies['react-native-webview'],'14.0.1');
+ assert.ok(native.includes('<StarryMemberWebView page="card"'));
+ assert.ok(native.includes("setCardRefresh(n=>n+1)"));
  assert.ok(native.includes("state==='active'"));
- assert.ok(!native.includes("user.profile?.nickname||user.profile?.display_name"));
+ assert.ok(native.includes('restoreSignIn()'));
+ assert.ok(native.includes('setMemberPage(\'profile\')'));
+ assert.ok(card.includes("starryClient.request<WebLink>('POST','/v1/me/web-link',{page})"));
+ assert.ok(!native.includes('expo-image'));
+ assert.ok(!native.includes('avatarCacheKey'));
+ assert.ok(!native.includes('user?.profile?.shown_name'));
 });
 test('Public-profile Battery bonus is centrally managed, never multiplied or awarded by RecordNote',()=>{
  const balance=page.slice(page.indexOf('function validateRecordnoteBattery('),page.indexOf('// Deletion is a separate',page.indexOf('function validateRecordnoteBattery(')));
