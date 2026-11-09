@@ -45,7 +45,7 @@ test('Web candidate wires all v14 official methods and leaves callback URL unfra
   'starryClient.completeWebSsoCheck(location.href)',
   'starryClient.signOutWebEverywhere({returnUrl:webSsoReturnUrl()})',
   "return location.origin+location.pathname",
-  '登出所有繁星 App']){
+  "case 'sign-out-all':return logout();"]){
   assert.ok(page.includes(s),'Missing web SSO implementation: '+s);
  }
  assert.ok(!page.includes('重新登入 Starry ID（10 分鐘內）'));
