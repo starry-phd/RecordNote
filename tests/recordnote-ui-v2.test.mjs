@@ -74,8 +74,9 @@ test('settings account and location first; advanced options hidden, including de
   assert.ok(html.indexOf('<h3>我的 Passkey')<html.indexOf('<h3>定位與地名'));
   assert.ok(html.indexOf('<h3>定位與地名')<html.indexOf('<summary>其他設定</summary>'));
   const a=html.indexOf('<summary>其他設定</summary>');
-  for(const id of ['nameRuleForm','uploadPolicyForm','selectFolder','deleteMyData'])
+  for(const id of ['nameRuleForm','selectFolder','deleteMyData'])
    assert.ok(html.indexOf(id)>a,'not hidden: '+id);
+  assert.ok(!html.includes('uploadPolicyForm'),'Owner upload form is now within /admin');
   if(desktop)assert.ok(html.includes('manualMapInput'));
   else assert.ok(!html.includes('manualMapInput'));
   assert.ok(html.includes('https://www.geoapify.com/'));
