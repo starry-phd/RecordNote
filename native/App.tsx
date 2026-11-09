@@ -1,8 +1,8 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {ActivityIndicator,Alert,AppState,Linking,Platform,Pressable,ScrollView,Share,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
+import {ActivityIndicator,Alert,AppState,Linking,Modal,Platform,Pressable,ScrollView,Share,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import {Image} from 'expo-image';
+import {StarryMemberWebView,type MemberPage} from './StarryMemberWebView';
 import {Passkey} from 'react-native-passkey';
 import {
  acceptConsent,addPasskey,checkApp,clearLocalSignIn,centralPasskeyError,
@@ -33,14 +33,15 @@ function Button({text,onPress,disabled=false,danger=false}:{text:string;onPress:
 export default function App(){
  const [gate,setGate]=useState<AppGate|null>(null),[user,setUser]=useState<Me|null>(null);
  const [consent,setConsent]=useState(false),[passkeys,setPasskeys]=useState<Key[]>([]);
- const [avatarFailed,setAvatarFailed]=useState(false);
+ const [memberPage,setMemberPage]=useState<MemberPage|null>(null),[cardRefresh,setCardRefresh]=useState(0);
+ const [deleteConfirmOpen,setDeleteConfirmOpen]=useState(false);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmText,setConfirmText]=useState('');
  const lastCheck=useRef(0),checking=useRef(false),mounted=useRef(true);
  const gateState=useRef<AppGate|null>(null),syncing=useRef(false);
  const passkeySupported=Passkey.isSupported();
  const readUser=useCallback(async()=>{
   const data=await starryClient.me();
-  if(mounted.current){setAvatarFailed(false);setUser(data);setConsent(Boolean(data.consent?.required));}
+  if(mounted.current){setUser(data);setConsent(Boolean(data.consent?.required));}
  },[]);
  const readKeys=useCallback(async()=>{
   const data=await listPasskeys();
@@ -83,7 +84,7 @@ export default function App(){
  },[syncMember]);
  useEffect(()=>{
   mounted.current=true;void checkCentral(true);
-  const listener=AppState.addEventListener('change',state=>{if(state==='active')void checkCentral();});
+  const listener=AppState.addEventListener('change',state=>{if(state==='active'){setCardRefresh(n=>n+1);void checkCentral();}});
   return ()=>{mounted.current=false;listener.remove();};
  },[checkCentral]);
  const run=useCallback(async(action:()=>Promise<void>,isPasskey=false)=>{
@@ -105,7 +106,7 @@ export default function App(){
   setConsent(Boolean(result.consent_required));await readUser();
  },true);
  const logout=()=>void run(async()=>{
-  await clearLocalSignIn();setUser(null);setPasskeys([]);setConsent(false);setConfirmText('');
+  await clearLocalSignIn();setUser(null);setPasskeys([]);setConsent(false);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
  });
  const approve=()=>void run(async()=>{await acceptConsent();setConsent(false);await readUser();});
  const addKey=()=>void run(async()=>{
@@ -120,7 +121,7 @@ export default function App(){
   Alert.alert('永久刪除 Starry ID 帳號','立即永久刪除，沒有撤回期，也不會自動取消 App Store／Google Play 訂閱。確定嗎？',[
    {text:'取消',style:'cancel'},
    {text:'永久刪除',style:'destructive',onPress:()=>void run(async()=>{
-    await deleteAccount();setUser(null);setPasskeys([]);setConsent(false);setConfirmText('');
+    await deleteAccount();setUser(null);setPasskeys([]);setConsent(false);setConfirmText('');setMemberPage(null);setDeleteConfirmOpen(false);
     setMessage('中央會員刪除程序已完成。');
    })}
   ]);
@@ -133,18 +134,12 @@ export default function App(){
   const currentUserId=user.user_id;
   const me=await starryClient.me();
   if(me.user_id!==currentUserId)return;
-  setUser(me);setAvatarFailed(false);
+  setUser(me);
   const memberNo=typeof me.member_no==='string'?me.member_no:'';
   if(!memberNo){setMessage('尚未取得會員編號，請至中央帳號中心查看。');return;}
   const url=ID+'/Invite/'+encodeURIComponent(memberNo);
   await Share.share({message:url,url});
  });
- const avatarUrl=typeof user?.profile?.avatar_url==='string'&&user.profile.avatar_url.startsWith('https://')
-  ?user.profile.avatar_url:null;
- const initials=typeof user?.profile?.initials==='string'?user.profile.initials:''; // Central computes initials.
- const avatarCacheKey=avatarUrl?avatarUrl.split('?')[0]:null; // NOT user_id: avatar path changes on upload.
- const displayName=typeof user?.profile?.shown_name==='string'&&user.profile.shown_name?
-  user.profile.shown_name:initials; // Only Starry ID decides the primary display name.
  const gated=gate?.state!=='ok';
  const warning=!gate?'正在確認中央會員系統…':gate.state==='maintenance'?'繁星答錄機目前維護中。':
   gate.state==='killed'?'繁星答錄機已停止服務。':gate.state==='update_required'?'請更新 App 再繼續。':
@@ -152,7 +147,7 @@ export default function App(){
  return <View style={styles.root}>
   <StatusBar barStyle="dark-content"/>
   <ScrollView contentContainerStyle={styles.scroll}>
-   <Text style={styles.title}>繁星答錄機 RecordNote</Text>
+   <Text style={styles.title}>{user?'設定':'繁星答錄機 RecordNote'}</Text>
    <Text style={styles.sub}>Starry ID 原生驗收基座 · {VERSION} ({BUILD})</Text>
    {warning?<View style={styles.alert}><Text>{warning}</Text></View>:null}
    {gate?.notices?.map((n,i)=><View key={i} style={styles.alert}><Text>{n.message}</Text></View>)}
@@ -164,54 +159,59 @@ export default function App(){
     {passkeySupported?<Button text="使用 Passkey 登入" disabled={busy} onPress={loginPasskey}/>:null}
     {Platform.OS==='android'?<Text style={styles.muted}>Android Passkey 必須先由業主登記實際安裝 APK 的 SHA-256；登記前無法正常使用。</Text>:null}
    </View>:null}
-   {!gated&&user?<View style={styles.card}>
-    <Text style={styles.heading}>我的中央會員</Text>
-    <View style={styles.memberRow}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initials}</Text>
-        {avatarUrl&&!avatarFailed?<Image key={avatarCacheKey} source={{uri:avatarUrl,cacheKey:avatarCacheKey||undefined}} cachePolicy="disk" contentFit="cover" onError={()=>setAvatarFailed(true)} style={styles.avatarImage} accessibilityLabel="會員頭像"/>:null}
-      </View>
-      <View style={styles.memberDetails}>
-        <Text style={styles.heading}>{displayName}</Text>
-        <Text style={styles.muted}>會員編號：{user.member_no||'尚未設定'}</Text>
-      </View>
-    </View>
-    {user.member_no?<>
-      <Button text="查看公開基本資料" disabled={busy} onPress={()=>open(ID+'/'+encodeURIComponent(user.member_no!))}/>
-      <Button text="分享邀請連結" disabled={busy} onPress={invite}/>
-    </>:null}
-    <Button text="登出所有繁星 App" disabled={busy} onPress={logout}/>
-    {consent?<View style={styles.card}>
-      <Text style={styles.heading}>請同意最新版會員條款及隱私權政策</Text>
-      <Button text="閱讀服務條款" disabled={busy} onPress={()=>open(ID+'/terms')}/>
-      <Button text="閱讀隱私權政策" disabled={busy} onPress={()=>open(ID+'/privacy')}/>
-      <Button text="我同意條款與隱私權政策" disabled={busy} onPress={approve}/>
-    </View>:<>
-      <Text style={styles.heading}>我的 Passkey</Text>
-      {passkeySupported?<Button text="新增 Passkey" disabled={busy} onPress={addKey}/>:null}
-      <Button text="查看我的 Passkey" disabled={busy} onPress={()=>void run(readKeys,true)}/>
-      {passkeys.map(k=><View key={k.id} style={styles.keyRow}>
-        <Text style={styles.keyName}>{k.name||'Passkey'}</Text>
-        <Button text="移除" disabled={busy} danger onPress={()=>removeKey(k)}/>
-      </View>)}
-      <Text style={styles.muted}>每位會員最多 10 把 Passkey，登入後隨時可以新增。</Text>
-      <Text style={styles.heading}>永久刪除中央會員帳號</Text>
-      <Text style={styles.muted}>立即永久刪除，沒有撤回期，不會自動取消 App Store／Google Play 訂閱。</Text>
-      <TextInput value={confirmText} onChangeText={setConfirmText} placeholder="輸入 DELETE"
-       accessibilityLabel="輸入 DELETE 確認永久刪除" autoCapitalize="characters" style={styles.input}/>
-      <Button text="永久刪除帳號" disabled={busy||confirmText.trim()!=='DELETE'} danger onPress={erase}/>
-    </>}
+   {!gated&&user&&consent?<View style={styles.card}>
+    <Text style={styles.heading}>請同意最新版會員條款及隱私權政策</Text>
+    <Button text="閱讀服務條款" disabled={busy} onPress={()=>open(ID+'/terms')}/>
+    <Button text="閱讀隱私權政策" disabled={busy} onPress={()=>open(ID+'/privacy')}/>
+    <Button text="我同意條款與隱私權政策" disabled={busy} onPress={approve}/>
    </View>:null}
-   <View style={styles.card}>
-    <Text style={styles.heading}>服務與支援</Text>
-    <Button text="聯絡客服" disabled={busy} onPress={contact}/>
-    <Button text="中央帳號中心" disabled={busy} onPress={()=>open(ID+'/account')}/>
-    <Button text="開啟既有 RecordNote 網頁版" disabled={busy} onPress={()=>open(WEB)}/>
-    <Text style={styles.muted}>此基座僅驗收原生登入。錄音、AI 任務與完整 RecordNote 手機畫面尚未移植。</Text>
-   </View>
+   {!gated&&user&&!consent?<>
+    <StarryMemberWebView page="card" userId={user.user_id} refreshKey={cardRefresh}/>
+    <View style={styles.card}>
+     <Button text="會員中心" disabled={busy} onPress={()=>setMemberPage('profile')}/>
+     <Button text="聯絡客服" disabled={busy} onPress={contact}/>
+     <Button text="登出所有繁星 App" disabled={busy} onPress={logout}/>
+     <Button text="永久刪除中央帳號" disabled={busy} danger onPress={()=>{setConfirmText('');setDeleteConfirmOpen(true);}}/>
+    </View>
+    <View style={styles.card}>
+     <Text style={styles.heading}>我的 Passkey</Text>
+     {passkeySupported?<Button text="新增 Passkey" disabled={busy} onPress={addKey}/>:null}
+     <Button text="查看我的 Passkey" disabled={busy} onPress={()=>void run(readKeys,true)}/>
+     {passkeys.map(k=><View key={k.id} style={styles.keyRow}>
+      <Text style={styles.keyName}>{k.name||'Passkey'}</Text>
+      <Button text="移除" disabled={busy} danger onPress={()=>removeKey(k)}/>
+     </View>)}
+     <Text style={styles.muted}>每位會員最多 10 把 Passkey，登入後隨時可以新增。</Text>
+    </View>
+    <View style={styles.card}>
+     <Text style={styles.heading}>繁星答錄機設定</Text>
+     <Button text="分享邀請連結" disabled={busy} onPress={invite}/>
+     <Button text="開啟既有 RecordNote 網頁版" disabled={busy} onPress={()=>open(WEB)}/>
+     <Text style={styles.muted}>此基座僅驗收原生登入。錄音、AI 任務與完整 RecordNote 手機畫面尚未移植。</Text>
+    </View>
+   </>:null}
    {message?<Text accessibilityRole="alert" style={styles.error}>{message}</Text>:null}
    {busy?<ActivityIndicator/>:null}
   </ScrollView>
+  <Modal visible={Boolean(memberPage&&user)} animationType="slide" presentationStyle="pageSheet"
+   onRequestClose={()=>setMemberPage(null)}>
+   <View style={styles.modalRoot}>
+    <Pressable style={styles.modalClose} accessibilityRole="button" onPress={()=>setMemberPage(null)}>
+     <Text style={styles.modalCloseText}>關閉</Text>
+    </Pressable>
+    {memberPage&&user?<StarryMemberWebView page={memberPage} userId={user.user_id} fullScreen/>:null}
+   </View>
+  </Modal>
+  <Modal visible={deleteConfirmOpen} transparent animationType="fade" onRequestClose={()=>setDeleteConfirmOpen(false)}>
+   <View style={styles.deleteOverlay}><View style={styles.deleteCard}>
+    <Text style={styles.heading}>永久刪除中央帳號</Text>
+    <Text style={styles.muted}>立即永久刪除，沒有撤回期，不會自動取消 App Store／Google Play 訂閱。</Text>
+    <TextInput value={confirmText} onChangeText={setConfirmText} placeholder="輸入 DELETE"
+     accessibilityLabel="輸入 DELETE 確認永久刪除" autoCapitalize="characters" style={styles.input}/>
+    <Button text="永久刪除帳號" disabled={busy||confirmText.trim()!=='DELETE'} danger onPress={erase}/>
+    <Button text="取消" onPress={()=>{setDeleteConfirmOpen(false);setConfirmText('');}}/>
+   </View></View>
+  </Modal>
  </View>;
 }
 const styles=StyleSheet.create({
@@ -225,5 +225,10 @@ const styles=StyleSheet.create({
  memberRow:{flexDirection:'row',alignItems:'center',gap:12},memberDetails:{flex:1},avatar:{width:56,height:56,borderRadius:28,backgroundColor:'#e5e7eb',alignItems:'center',justifyContent:'center',overflow:'hidden'},avatarText:{fontSize:19,fontWeight:'700',color:'#334155'},avatarImage:{position:'absolute',width:56,height:56,borderRadius:28},
  muted:{fontSize:14,lineHeight:21,color:'#475569'},error:{color:'#b91c1c'},
  keyRow:{flexDirection:'row',alignItems:'center',gap:10},keyName:{flex:1},
- input:{borderWidth:1,borderColor:'#cbd5e1',borderRadius:7,padding:10}
+ input:{borderWidth:1,borderColor:'#cbd5e1',borderRadius:7,padding:10},
+ modalRoot:{flex:1,backgroundColor:'#fff',paddingTop:48},
+ modalClose:{alignSelf:'flex-end',paddingHorizontal:20,paddingVertical:12},
+ modalCloseText:{color:'#354e7a',fontSize:16,fontWeight:'600'},
+ deleteOverlay:{flex:1,justifyContent:'center',padding:22,backgroundColor:'rgba(0,0,0,0.4)'},
+ deleteCard:{padding:20,borderRadius:14,backgroundColor:'#fff',gap:14}
 });
