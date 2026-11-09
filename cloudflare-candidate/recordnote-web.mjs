@@ -6,7 +6,8 @@ const ASSETS={"/vendor/ffmpeg/ffmpeg.js": "https://cdn.jsdelivr.net/npm/@ffmpeg/
 export default {async fetch(request) {
  const url=new URL(request.url);
  if(url.pathname==='/assets/m4a-mdta.mjs'&&request.method==='GET')return new Response(MDTA_MODULE,{headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
- if(url.pathname==='/admin/metadata'&&request.method==='GET')return new Response(ADMIN_PAGE,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; connect-src 'self' https://recordnote-api.starry.phd https://recordnote-staging.starry-phd.workers.dev https://id.starry.phd; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: 'self'; base-uri 'none'; frame-ancestors 'none'"}});
+ if(url.pathname==='/admin/metadata'&&request.method==='GET')return Response.redirect(url.origin+'/admin',302); // Legacy route, all Admin UI now under /admin.
+ if(url.pathname==='/assets/recordnote-metadata-admin.html'&&request.method==='GET')return new Response(ADMIN_PAGE,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'SAMEORIGIN','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; connect-src 'self' https://recordnote-api.starry.phd https://recordnote-staging.starry-phd.workers.dev https://id.starry.phd; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: 'self'; base-uri 'none'; frame-ancestors 'self'"}});
 
  if(Object.prototype.hasOwnProperty.call(ASSETS,url.pathname)) {
   if(request.method!=='GET') return new Response('Method Not Allowed',{status:405});
@@ -20,12 +21,12 @@ export default {async fetch(request) {
   }catch {return new Response('Editor codec temporarily unavailable',{status:503,headers:{'cache-control':'no-store'}});}
  }
  if(request.method!=='GET')return new Response('Method Not Allowed',{status:405});
- const spaPage=['/','/index.html','/books','/search','/settings','/storage','/trash'].includes(url.pathname)||/^\/courses\/[^/]+$/.test(url.pathname);
+ const spaPage=['/','/index.html','/books','/search','/settings','/storage','/trash','/admin'].includes(url.pathname)||/^\/courses\/[^/]+$/.test(url.pathname);
  if(!spaPage)return new Response('<h1>404｜找不到這個頁面</h1><a href="/">回首頁</a>',{status:404,headers:{'content-type':'text/html; charset=utf-8'}});
 
  return new Response(PAGE,{headers:{
    'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',
    'x-frame-options':'DENY','referrer-policy':'no-referrer','permissions-policy':'microphone=(self)',
-   'content-security-policy':"default-src 'none'; connect-src 'self' blob: https://recordnote-api.starry.phd https://location.starry.phd https://id.starry.phd https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; img-src 'self' blob: data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+   'content-security-policy':"default-src 'none'; connect-src 'self' blob: https://recordnote-api.starry.phd https://location.starry.phd https://id.starry.phd https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; img-src 'self' blob: data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
  }});
 }};
