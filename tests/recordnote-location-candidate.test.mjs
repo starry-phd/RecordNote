@@ -115,7 +115,7 @@ test('mobile renders no Google Maps manual coordinates controls and desktop reta
  assert.ok(begin>=0&&end>begin,'settings renderer exists');
  const source=page.slice(begin,end);
  const base={state:{mode:'live',uploadPolicy:{can_manage:true,max_file_mb:200},storageFolderName:'下載'},
-  readNameRule:()=>({prefix:'RecordNote',date:true,time:true,counter:true}),banner:()=>'',aiBatterySettings:()=>'',centralMemberSection:()=>'',memberBatterySection:()=>'',passkeySection:()=>'',passkeyLoginButton:()=>'',recordnoteSupportUrl:()=> 'https://id.starry.phd/support?app_id=recordnote',
+  readNameRule:()=>({prefix:'RecordNote',date:true,time:true,counter:true}),banner:()=>'',aiBatterySettings:()=>'',officialSettingsBlocks:()=>'',passkeyLoginButton:()=>'',recordnoteSupportUrl:()=> 'https://id.starry.phd/support?app_id=recordnote',
   gpsOptIn:()=>true,mdGeoOptIn:()=>true,mdManualPoint:()=>null,
   mdGoogleMapsUrl:()=>'',mdManualRecordEnabled:()=>false,
   e:x=>String(x),ID:'https://id.starry.phd'};
