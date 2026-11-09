@@ -23,4 +23,4 @@
 - **網頁版 RecordNote：** `starry-phd/id` 的 `src/web/layout.ts` 對會員頁回應套用 `Content-Security-Policy: frame-ancestors 'none'`，跨來源的 `<iframe>` 因此**無法**在 `recordnote.starry.phd` 中顯示中央會員卡。這個限制屬 Starry ID，依業主禁令不能在本 PR 修改中央的程式或設定。故網頁版舊顯示先維持不變，避免推出一個空白會員卡；**網頁版第 9 項仍需中央提供受限且安全的嵌入方案**，不能標為已完成。
 - App 會員資料頁的 `page=referral/network/apps` 使用同一個 `StarryMemberWebView`，如未來新增入口，不需另寫登入。
 - **使用者／業主事項：** PR CI 全綠後由業主決定合併；原生 development build 需安裝依賴並在真實手機驗收 WebView 單次登入卡、會員中心、退出、回前景更新。尚未發佈任何商店版本。
-- 公開 `GET https://id.starry.phd/v1/apps/recordnote/config` 應確認 `status=active`；若工具無法直接讀取，回報為「尚待實際 GET 驗證」，不可宣稱已驗證。
+- **公開 GET 已驗證**：GitHub Actions「RecordNote Starry ID public contract」於 2026-11-09 透過 `GET https://id.starry.phd/v1/apps/recordnote/config` 確認 `app_id=recordnote`、`status=active`、`min_version=0.0.0`，JWKS 公鑰資料亦通過驗證（run `42542208066`）。
