@@ -66,7 +66,7 @@ const oldRouting=`const website = pathname==='/' ||
    pathname==='/admin/metadata' ||
    pathname==='/assets/m4a-mdta.mjs' ||
    pathname.startsWith('/vendor/ffmpeg/');`;
-const newRouting=`const website = pathname==='/' ||
+const newRouting=String.raw`const website = pathname==='/' ||
    ['/index.html','/books','/search','/settings','/storage','/trash'].includes(pathname) ||
    /^\/courses\/[^/]+$/.test(pathname) ||
    pathname==='/admin/metadata' ||
