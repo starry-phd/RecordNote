@@ -222,7 +222,6 @@ const styles=StyleSheet.create({
  button:{padding:13,backgroundColor:'#354e7a',borderRadius:8,alignItems:'center'},
  danger:{backgroundColor:'#9a2d36'},disabled:{opacity:.5},pressed:{opacity:.75},
  buttonText:{fontWeight:'600',fontSize:15,color:'#fff'},
- memberRow:{flexDirection:'row',alignItems:'center',gap:12},memberDetails:{flex:1},avatar:{width:56,height:56,borderRadius:28,backgroundColor:'#e5e7eb',alignItems:'center',justifyContent:'center',overflow:'hidden'},avatarText:{fontSize:19,fontWeight:'700',color:'#334155'},avatarImage:{position:'absolute',width:56,height:56,borderRadius:28},
  muted:{fontSize:14,lineHeight:21,color:'#475569'},error:{color:'#b91c1c'},
  keyRow:{flexDirection:'row',alignItems:'center',gap:10},keyName:{flex:1},
  input:{borderWidth:1,borderColor:'#cbd5e1',borderRadius:7,padding:10},
