@@ -8,22 +8,17 @@ const member=read('native/StarryMemberWebView.tsx');
 const pkg=JSON.parse(read('native/package.json'));
 const api=JSON.parse(read('vendor/starry-id/starry-id.v1.json'));
 
-test('v2026-11-09.1: native settings are led by the unmodified central Starry ID member card',()=>{
+test('v2026-11-09.2 replaces 11-09.1 member card with canonical SDK settings blocks',()=>{
  assert.equal(pkg.dependencies['react-native-webview'],'14.0.1');
  assert.ok(api.paths['/v1/me/web-link'].post);
- const card=native.indexOf('<StarryMemberWebView page="card"');
- const memberCenter=native.indexOf('text="會員中心"',card);
- const support=native.indexOf('text="聯絡客服"',memberCenter);
- const logout=native.indexOf('text="登出所有繁星 App"',support);
- const deletion=native.indexOf('text="永久刪除中央帳號"',logout);
- const keys=native.indexOf('>我的 Passkey</Text>',deletion);
- const ownSettings=native.indexOf('>繁星答錄機設定</Text>',keys);
- assert.ok(card>0&&card<memberCenter&&memberCenter<support&&support<logout&&logout<deletion&&deletion<keys&&keys<ownSettings);
- assert.ok(!native.includes('memberRow'));
- assert.ok(!native.includes('avatarCacheKey'));
- assert.ok(!native.includes('expo-image'));
+ const sdk=read('vendor/starry-id/starry-client.ts');
+ assert.ok(sdk.includes('export function starrySettingsBlocks(input: SettingsInput)'));
+ for(const title of ['繁星電池艙','我的中央會員','我的 Passkey'])assert.ok(sdk.includes(title));
+ assert.ok(native.includes('settingsBlocks.map(block=>'));
+ assert.ok(native.includes('starrySettingsBlocks({me:user,battery,passkeys})'));
+ assert.ok(!native.includes('<StarryMemberWebView page="card"'));
+ assert.ok(!native.includes('setCardRefresh('));
 });
-
 test('one-time web-link is acquired with official SDK and consumed only in same-origin WebView',()=>{
  assert.ok(member.includes("starryClient.request<WebLink>('POST','/v1/me/web-link',{page})"));
  assert.ok(member.includes('setUri(link.url)'));
@@ -44,7 +39,7 @@ test('member center stays in an in-app WebView; support alone uses the system br
  assert.ok(native.includes('page={memberPage}'));
  assert.ok(native.includes('fullScreen'));
  assert.ok(native.includes('Linking.openURL(await supportUrl('));
- assert.ok(native.includes("setCardRefresh(n=>n+1)"));
+ assert.ok(native.includes('Promise.allSettled([readUser(),readKeys(),readBattery()])'));
  assert.ok(native.includes('confirmText.trim()!==\'DELETE\''));
  assert.ok(native.includes('不會自動取消 App Store／Google Play 訂閱'));
 });
