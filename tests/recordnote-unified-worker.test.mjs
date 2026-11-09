@@ -29,9 +29,16 @@ test('production site homepage and admin assets are served directly on the API W
   assert.ok(html.includes('永久刪除中央帳號'));
   assert.ok(html.includes('class StarryClient'),'Official frontend client must be in the deployed single Worker');
  }
- const metadata=await worker.fetch(new Request('https://recordnote.starry.phd/admin/metadata'),{});
+ const admin=await worker.fetch(new Request('https://recordnote.starry.phd/admin'),{});
+ assert.equal(admin.status,200);
+ assert.match(admin.headers.get('content-type'),/text\/html/);
+ const legacy=await worker.fetch(new Request('https://recordnote.starry.phd/admin/metadata'),{});
+ assert.equal(legacy.status,302);
+ assert.equal(legacy.headers.get('location'),'https://recordnote.starry.phd/admin');
+ const metadata=await worker.fetch(new Request('https://recordnote.starry.phd/assets/recordnote-metadata-admin.html'),{});
  assert.equal(metadata.status,200);
  assert.match(metadata.headers.get('content-type'),/text\/html/);
+ assert.equal(metadata.headers.get('x-frame-options'),'SAMEORIGIN');
  const code=await worker.fetch(new Request('https://recordnote.starry.phd/assets/m4a-mdta.mjs'),{});
  assert.equal(code.status,200);
  assert.match(code.headers.get('content-type'),/javascript/);
