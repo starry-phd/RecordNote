@@ -56,10 +56,25 @@ const a=current.indexOf('const recordnoteApi = (() => {\n');
 const b=current.indexOf('\n})();\nconst recordnoteWeb = (() => {\n',a);
 const c=current.indexOf('\n})();\nexport default {',b);
 if(a<0||b<=a||c<=b)throw Error('Unified Worker wrapper has changed; refusing unsafe replacement');
-const result=current.slice(0,a)+
+let result=current.slice(0,a)+
  'const recordnoteApi = (() => {\n'+
  '/* Vendored official Starry ID backend SDK — TypeScript transpiled, no custom API client. */\n'+sdk+'\n'+api+
  '\n})();\nconst recordnoteWeb = (() => {\n'+web+current.slice(c);
+// Pass deep links to the web SPA without stealing /v1, /health, /s or media API routes.
+const oldRouting=`const website = pathname==='/' ||
+   pathname==='/index.html' ||
+   pathname==='/admin/metadata' ||
+   pathname==='/assets/m4a-mdta.mjs' ||
+   pathname.startsWith('/vendor/ffmpeg/');`;
+const newRouting=String.raw`const website = pathname==='/' ||
+   ['/index.html','/books','/search','/settings','/storage','/trash'].includes(pathname) ||
+   /^\/courses\/[^/]+$/.test(pathname) ||
+   pathname==='/admin/metadata' ||
+   pathname==='/assets/m4a-mdta.mjs' ||
+   pathname.startsWith('/vendor/ffmpeg/');`;
+if(result.includes(oldRouting))result=result.replace(oldRouting,newRouting);
+else if(!result.includes(newRouting))throw Error('Worker SPA route gateway changed unexpectedly');
+
 if((result.match(/\bexport default\b/g)||[]).length!==1)throw Error('Expected one bundled Worker entrypoint');
 if(!result.includes('apiBase: window.location.origin'))throw Error('Same-origin Web/API routing missing');
 if(process.argv.includes('--check')){

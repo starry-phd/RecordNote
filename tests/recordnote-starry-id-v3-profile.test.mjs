@@ -48,24 +48,24 @@ test('Signed avatar cache key drops query and never uses user ID',()=>{
 test('Web avatar is refreshed at every settings entry and foreground resume, even during gate throttle',()=>{
  const focus=page.slice(page.indexOf('async function recordnoteForegroundCheck()'),page.indexOf("document.addEventListener('visibilitychange'"));
  assert.ok(focus.includes("if(Date.now()-recordnoteGateLastCheck<60000){"));
- assert.ok(focus.includes("await refreshCentralMember();"));
+ assert.ok(focus.includes('refreshCentralMember(),refreshMemberBattery(),loadPasskeys()'));
  assert.ok(page.includes("if(page==='settings'){void refreshMemberBattery();void loadPasskeys();void refreshCentralMember();}"));
  assert.ok(page.includes('const me=await starryClient.me();'));
  assert.ok(page.includes('data-cache-key'));
  assert.ok(page.includes("img.addEventListener('error'"));
 });
-test('Native delegates all member display to the Starry ID WebView and refreshes on foreground',()=>{
- const card=read('native/StarryMemberWebView.tsx');
+test('Native draws the three Starry SDK settings blocks and refreshes on foreground',()=>{
+ const nativePage=read('native/StarryMemberWebView.tsx');
  assert.equal(pkg.dependencies['react-native-webview'],'14.0.1');
- assert.ok(native.includes('<StarryMemberWebView page="card"'));
- assert.ok(native.includes("setCardRefresh(n=>n+1)"));
+ assert.ok(native.includes('starrySettingsBlocks({me:user,battery,passkeys})'));
+ assert.ok(native.includes('settingsBlocks.map(block=>'));
  assert.ok(native.includes("state==='active'"));
  assert.ok(native.includes('restoreSignIn()'));
- assert.ok(native.includes('setMemberPage(\'profile\')'));
- assert.ok(card.includes("starryClient.request<WebLink>('POST','/v1/me/web-link',{page})"));
- assert.ok(!native.includes('expo-image'));
+ assert.ok(native.includes("case 'member-center':setMemberPage('profile')"));
+ assert.ok(native.includes("case 'battery-history': setMemberPage('battery')"));
+ assert.ok(nativePage.includes("starryClient.request<WebLink>('POST','/v1/me/web-link',{page})"));
+ assert.ok(!native.includes('<StarryMemberWebView page="card"'));
  assert.ok(!native.includes('avatarCacheKey'));
- assert.ok(!native.includes('user?.profile?.shown_name'));
 });
 test('Public-profile Battery bonus is centrally managed, never multiplied or awarded by RecordNote',()=>{
  const balance=page.slice(page.indexOf('function validateRecordnoteBattery('),page.indexOf('// Deletion is a separate',page.indexOf('function validateRecordnoteBattery(')));

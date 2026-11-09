@@ -123,11 +123,11 @@ test('Rejected central deletion never claims success or revokes the local sessio
 });
 
 test('UI includes a separate irreversible central account deletion consent flow',()=>{
- assert.ok(page.includes('data-action="requestCentralDeletion"'));
+ assert.ok(page.includes("case 'delete-account':state.dialog='deleteStarryAccount';render();return;"));
  assert.ok(page.includes('id="deleteStarryAccountForm"'));
  assert.ok(page.includes('id="starryAccountDeletePhrase"'));
  assert.ok(page.includes("event.target.value.trim()!=='DELETE'"));
- assert.ok(page.includes("case 'requestCentralDeletion'"));
+ assert.ok(page.includes("case 'starrySettingsAction':await runStarrySettingsAction(id)"));
  assert.ok(page.includes("event.target.id==='deleteStarryAccountForm'"));
  assert.ok(page.includes('不會自動取消 App Store／Google Play 訂閱'));
  assert.ok(!helpers.includes('STARRY_BATTERY_KEY'),'The browser must never contain the backend service key');

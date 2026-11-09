@@ -63,13 +63,12 @@ test('Real Chromium: candidate homepage renders, navigates, and offers Google/Ap
   }else{
    assert.equal(await page.locator('button[data-action="signInPasskey"]').count(),0);
   }
-  const support=await page.locator('a[href*="id.starry.phd/support?"]').first().getAttribute('href');
-  const url=new URL(support);
-  assert.equal(url.hostname,'id.starry.phd');
-  assert.equal(url.searchParams.get('app_id'),'recordnote');
-  assert.ok(url.searchParams.has('app_version'));
-  assert.ok(url.searchParams.has('device'));
-  assert.ok(!url.searchParams.has('token'));
+  const support=page.locator('button[data-action="starrySettingsAction"][data-id="support"]').first();
+  await support.waitFor({state:'visible'});
+  assert.equal((await support.textContent()).trim(),'聯絡客服');
+  assert.equal(await support.isEnabled(),true,'support remains available before login');
+  for(const name of ['battery','member','passkey'])
+   assert.equal(await page.locator('[data-starry-settings-block="'+name+'"]').count(),1);
   assert.deepEqual(exceptions,[],'No unhandled browser JavaScript exceptions allowed');
  }finally{await context.close();}
 });

@@ -25,8 +25,8 @@ test('Native Client passes one secure device-shared storage adapter, not a fake 
  assert.match(bridge,/requireNativeModule<NativeSso>\('StarrySharedSso'\)/);
  assert.ok(!bridge.includes('SecureStore.getItemAsync'));
  assert.ok(!auth.includes('請重新登入（10 分鐘內）'));
- assert.ok(app.includes('登入後隨時可以新增'));
- assert.ok(app.includes('登出所有繁星 App'));
+ assert.ok(app.includes("case 'add-passkey':addKey()"));
+ assert.ok(app.includes("case 'sign-out-all':logout()"));
  assert.ok(app.includes("if(gateState.current?.state==='ok')await syncMember()"));
  assert.ok(app.includes('restoreSignIn()'));
  assert.ok(app.includes('setUser(null)'));

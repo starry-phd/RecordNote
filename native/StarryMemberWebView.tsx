@@ -1,14 +1,14 @@
 /**
- * Starry ID alone renders member identity, battery balances and Passkey count.
+ * Starry ID owns member pages; the App draws settings using the official starrySettingsBlocks().
  * The single-use URL is NEVER persisted, logged, or sent to another origin.
- * All member pages remain inside an iOS WKWebView / Android WebView.
+ * All linked member pages remain inside an iOS WKWebView / Android WebView.
  */
 import React,{useEffect,useState} from 'react';
 import {ActivityIndicator,Pressable,StyleSheet,Text,View} from 'react-native';
 import {WebView} from 'react-native-webview';
 import {starryClient} from '../expo/RecordNoteStarryAuth';
 
-export type MemberPage='card'|'profile'|'referral'|'network'|'apps';
+export type MemberPage='battery'|'profile'|'referral'|'network'|'apps';
 type WebLink={url:string;expires_in:number};
 
 const MEMBER_ORIGIN='https://id.starry.phd';
@@ -38,7 +38,7 @@ export function StarryMemberWebView({page,userId,refreshKey=0,fullScreen=false}:
  useEffect(()=>{
   let live=true;
   setUri(null);setError('');
-  // Request a fresh link on every entry/foreground; each code expires after 2 minutes and works only once.
+  // Request a fresh link on each button press; every code expires after 2 minutes and works only once.
   void starryClient.request<WebLink>('POST','/v1/me/web-link',{page}).then(link=>{
    if(!live)return;
    if(!centralUrlOnly(link?.url)||!link.url.startsWith(MEMBER_ORIGIN+'/auth/app-open?'))throw Error('INVALID_STARRY_WEB_LINK');
