@@ -33,15 +33,17 @@ test('shown_name is Central-controlled, never based on local nickname or email',
  assert.ok(html.includes('官方名稱'));
  assert.ok(!html.includes('不應顯示暱稱')&&!html.includes('不應顯示本名'));
 });
-test('mobile account control buttons use two columns while keeping dangerous action obvious',()=>{
- assert.ok(page.includes('class="card panel rn-account-card"'));
- assert.ok(page.includes('.rn-account-card .rn-account-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'));
- assert.ok(page.includes('data-action="requestCentralDeletion"'));
- assert.ok(page.includes('data-action="logout"'));
+test('Settings page uses canonical SDK blocks, not extra account or Battery descriptions',()=>{
+ const settings=page.slice(page.indexOf('function settings(){'),page.indexOf('function dialog(){'));
+ assert.ok(settings.includes('officialSettingsBlocks()'));
+ assert.ok(!settings.includes('centralMemberSection()'));
+ assert.ok(!settings.includes('memberBatterySection()'));
+ assert.ok(!settings.includes('passkeySection()'));
+ assert.ok(!settings.includes('重新查詢餘額'));
+ assert.ok(page.includes('data-action="starrySettingsAction"'));
 });
-test('web logout scope is explained and underlying Central browser-only SDK is unchanged',()=>{
- assert.ok(page.includes('登出所有繁星 App'));
- assert.ok(page.includes('網頁版登出僅影響此瀏覽器內的繁星網頁'));
- assert.ok(page.includes('不會登出手機上已安裝的 App'));
+test('Web logout retains same-browser Starry ID SSO logic without a non-standard footnote',()=>{
  assert.ok(page.includes('await starryClient.signOutWebEverywhere({returnUrl:webSsoReturnUrl()})'));
+ const settings=page.slice(page.indexOf('function settings(){'),page.indexOf('function dialog(){'));
+ assert.ok(!settings.includes('網頁版登出僅影響此瀏覽器內的繁星網頁'));
 });
